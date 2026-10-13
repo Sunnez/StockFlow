@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.models.product import Product
 from app.schemas.product import ProductCreate, ProductRead
+from app.services.product import service as product_service
+
 
 router = APIRouter(
     prefix="/products",
@@ -21,47 +23,38 @@ async def create_product(
     data: ProductCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    product = Product(
+    return await product_service.create_product(
+        db,
         name=data.name,
         sku=data.sku,
     )
 
-    db.add(product)
-
-    await db.commit()
-    await db.refresh(product)
-
-    return product
-
 
 @router.get(
     "",
-    response_model=list[ProductRead]
+    response_model=list[ProductRead],
 )
 async def get_products(
     db: AsyncSession = Depends(get_db),
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    result = await db.execute(
-        select(Product)
+    return await product_service.list_products(
+        db,
+        limit=limit,
+        offset=offset,
     )
-
-    return result.scalars().all()
 
 
 @router.get(
     "/{product_id}",
-    response_model=ProductRead
+    response_model=ProductRead,
 )
 async def get_product(
     product_id: int,
     db: AsyncSession = Depends(get_db),
 ):
-    product = await db.get(Product, product_id)
-
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found"
-        )
-
-    return product
+    return await product_service.get_product(
+        db,
+        product_id=product_id,
+    )

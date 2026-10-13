@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.models.warehouse import Warehouse
 from app.schemas.warehouse import WarehouseCreate, WarehouseRead
+from app.services.warehouse import service as warehouse_service
 
 
 router = APIRouter(
@@ -18,45 +19,42 @@ router = APIRouter(
     response_model=WarehouseRead,
     status_code=status.HTTP_201_CREATED,
 )
-async def warehouse_create(data: WarehouseCreate, db: AsyncSession = Depends(get_db)):
-    warehouse = Warehouse(name=data.name, location=data.location)
-
-    db.add(warehouse)
-
-    await db.commit()
-    await db.refresh(warehouse)
-
-    return warehouse
+async def create_warehouse(
+    data: WarehouseCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    return await warehouse_service.create_warehouse(
+        db,
+        name=data.name,
+        location=data.location,
+    )
 
 
 @router.get(
     "",
-    response_model=WarehouseRead
+    response_model=list[WarehouseRead],
 )
 async def get_warehouses(
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ):
-    result = await db.execute(
-        select(Warehouse)
+    return await warehouse_service.list_warehouses(
+        db,
+        limit=limit,
+        offset=offset,
     )
-
-    return result.scalars().all()
 
 
 @router.get(
     "/{warehouse_id}",
-    response_model=WarehouseRead
+    response_model=WarehouseRead,
 )
 async def get_warehouse(
     warehouse_id: int,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    warehouse = await db.get(Warehouse, warehouse_id)
-
-    if warehouse is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail='Warehouse not found'
-        )
-
-    return warehouse
+    return await warehouse_service.get_warehouse(
+        db,
+        warehouse_id=warehouse_id,
+    )
