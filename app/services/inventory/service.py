@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from uuid import UUID
 
 from psycopg.errors import (
     CheckViolation,
@@ -31,8 +32,8 @@ from app.services.warehouse.exceptions import WarehouseNotFoundError
 async def create_inventory(
     db: AsyncSession,
     *,
-    warehouse_id: int,
-    product_id: int,
+    warehouse_id: UUID,
+    product_id: UUID,
     quantity: int,
 ) -> Inventory:
     if quantity < 0:
@@ -107,7 +108,7 @@ async def create_inventory(
 async def list_warehouse_inventory(
     db: AsyncSession,
     *,
-    warehouse_id: int,
+    warehouse_id: UUID,
     limit: int,
     offset: int,
 ) -> Sequence[Inventory]:
@@ -135,8 +136,8 @@ async def list_warehouse_inventory(
 async def update_inventory_quantity(
     db: AsyncSession,
     *,
-    warehouse_id: int,
-    product_id: int,
+    warehouse_id: UUID,
+    product_id: UUID,
     quantity: int,
 ) -> Inventory:
     if quantity < 0:

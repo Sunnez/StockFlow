@@ -1,6 +1,7 @@
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -51,7 +52,7 @@ async def get_products(
     response_model=ProductRead,
 )
 async def get_product(
-    product_id: int,
+    product_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
     return await product_service.get_product(

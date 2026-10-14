@@ -1,6 +1,7 @@
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -51,7 +52,7 @@ async def get_warehouses(
     response_model=WarehouseRead,
 )
 async def get_warehouse(
-    warehouse_id: int,
+    warehouse_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
     return await warehouse_service.get_warehouse(

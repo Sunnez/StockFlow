@@ -1,85 +1,68 @@
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
-from app.services.inventory.exceptions import (
-    InventoryAlreadyExistsError,
-    InventoryNotFoundError,
-    InvalidInventoryQuantityError,
+from app.core.exceptions import (
+    ApplicationValidationError,
+    ConflictError,
+    NotFoundError,
 )
-from app.services.product.exceptions import (
-    ProductNotFoundError,
-    ProductSkuAlreadyExistsError,
-)
-from app.services.warehouse.exceptions import (
-    WarehouseNameAlreadyExistsError,
-    WarehouseNotFoundError,
-)
+
+
+def _error_response(
+    *,
+    status_code: int,
+    exc: Exception,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "detail": str(exc),
+        },
+    )
 
 
 async def not_found_handler(
     request: Request,
-    exc: Exception,
+    exc: NotFoundError,
 ) -> JSONResponse:
-    return JSONResponse(
+    return _error_response(
         status_code=status.HTTP_404_NOT_FOUND,
-        content={
-            "detail": str(exc),
-        },
+        exc=exc,
     )
 
 
 async def conflict_handler(
-    request: Request,
-    exc: Exception,
+    _request: Request,
+    exc: ConflictError,
 ) -> JSONResponse:
-    return JSONResponse(
+    return _error_response(
         status_code=status.HTTP_409_CONFLICT,
-        content={
-            "detail": str(exc),
-        },
+        exc=exc,
     )
 
 
-async def validation_handler(
+async def application_validation_handler(
     request: Request,
-    exc: Exception,
+    exc: ApplicationValidationError,
 ) -> JSONResponse:
-    return JSONResponse(
+    return _error_response(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={
-            "detail": str(exc),
-        },
+        exc=exc,
     )
 
 
 def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(
-        ProductNotFoundError,
-        not_found_handler,
-    )
-    app.add_exception_handler(
-        WarehouseNotFoundError,
-        not_found_handler,
-    )
-    app.add_exception_handler(
-        InventoryNotFoundError,
+        NotFoundError,
         not_found_handler,
     )
 
     app.add_exception_handler(
-        ProductSkuAlreadyExistsError,
-        conflict_handler,
-    )
-    app.add_exception_handler(
-        WarehouseNameAlreadyExistsError,
-        conflict_handler,
-    )
-    app.add_exception_handler(
-        InventoryAlreadyExistsError,
+        ConflictError,
         conflict_handler,
     )
 
     app.add_exception_handler(
-        InvalidInventoryQuantityError,
-        validation_handler,
+        ApplicationValidationError,
+        application_validation_handler,
     )

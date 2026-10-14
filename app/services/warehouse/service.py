@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from uuid import UUID
 
 from psycopg.errors import UniqueViolation
 from sqlalchemy import select
@@ -47,7 +48,7 @@ async def create_warehouse(
 async def get_warehouse(
     db: AsyncSession,
     *,
-    warehouse_id: int,
+    warehouse_id: UUID,
 ) -> Warehouse:
     warehouse = await db.get(Warehouse, warehouse_id)
 

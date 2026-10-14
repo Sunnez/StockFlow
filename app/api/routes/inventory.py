@@ -1,6 +1,7 @@
 from typing import Annotated
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
@@ -24,7 +25,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_inventory(
-    warehouse_id: int,
+    warehouse_id: UUID,
     data: InventoryCreate,
     db: AsyncSession = Depends(get_db),
 ):
@@ -41,7 +42,7 @@ async def create_inventory(
     response_model=list[InventoryRead],
 )
 async def get_warehouse_inventory(
-    warehouse_id: int,
+    warehouse_id: UUID,
     db: AsyncSession = Depends(get_db),
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -59,8 +60,8 @@ async def get_warehouse_inventory(
     response_model=InventoryRead,
 )
 async def update_inventory(
-    warehouse_id: int,
-    product_id: int,
+    warehouse_id: UUID,
+    product_id: UUID,
     data: InventoryUpdate,
     db: AsyncSession = Depends(get_db),
 ):
