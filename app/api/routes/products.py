@@ -1,13 +1,12 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.schemas.product import ProductCreate, ProductRead
 from app.services.product import service as product_service
-
 
 router = APIRouter(
     prefix="/products",
@@ -35,7 +34,7 @@ async def create_product(
     "",
     response_model=list[ProductRead],
 )
-async def get_products(
+async def list_products(
     db: AsyncSession = Depends(get_db),
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,

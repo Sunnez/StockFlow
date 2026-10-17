@@ -11,7 +11,6 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 
-
 UQ_INVENTORY_PRODUCT_WAREHOUSE = "uq_inventory_product_warehouse"
 CK_INVENTORY_QUANTITY_NON_NEGATIVE = "ck_inventory_quantity_non_negative"
 

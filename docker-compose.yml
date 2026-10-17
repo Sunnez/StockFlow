@@ -11,5 +11,17 @@ services:
     volumes:
       - stockflow_pgdata:/var/lib/postgresql/data
 
+  db_test:
+    image: postgres:16
+    container_name: stockflow_test_db
+    environment:
+      POSTGRES_DB: stockflow_test
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+
 volumes:
   stockflow_pgdata:

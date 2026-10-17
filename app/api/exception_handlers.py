@@ -22,7 +22,7 @@ def _error_response(
 
 
 async def not_found_handler(
-    request: Request,
+    _request: Request,
     exc: NotFoundError,
 ) -> JSONResponse:
     return _error_response(
@@ -42,7 +42,7 @@ async def conflict_handler(
 
 
 async def application_validation_handler(
-    request: Request,
+    _request: Request,
     exc: ApplicationValidationError,
 ) -> JSONResponse:
     return _error_response(

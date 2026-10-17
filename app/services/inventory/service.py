@@ -21,9 +21,9 @@ from app.models.inventory import (
 from app.models.product import Product
 from app.models.warehouse import Warehouse
 from app.services.inventory.exceptions import (
+    InvalidInventoryQuantityError,
     InventoryAlreadyExistsError,
     InventoryNotFoundError,
-    InvalidInventoryQuantityError,
 )
 from app.services.product.exceptions import ProductNotFoundError
 from app.services.warehouse.exceptions import WarehouseNotFoundError
