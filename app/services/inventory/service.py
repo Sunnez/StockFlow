@@ -24,6 +24,7 @@ from app.services.inventory.exceptions import (
     InvalidInventoryQuantityError,
     InventoryAlreadyExistsError,
     InventoryNotFoundError,
+    InventoryNotEmptyError,
 )
 from app.services.product.exceptions import ProductNotFoundError
 from app.services.warehouse.exceptions import WarehouseNotFoundError
@@ -191,3 +192,38 @@ async def update_inventory_quantity(
         raise
 
     return inventory
+
+
+async def delete_inventory(
+    db: AsyncSession,
+    *,
+    warehouse_id: UUID,
+    product_id: UUID,
+) -> None:
+    async with db.begin():
+        stmt = (
+            select(Inventory)
+            .where(
+                Inventory.warehouse_id == warehouse_id,
+                Inventory.product_id == product_id,
+            )
+            .with_for_update()
+        )
+
+        result = await db.execute(stmt)
+        inventory = result.scalar_one_or_none()
+
+        if inventory is None:
+            raise InventoryNotFoundError(
+                product_id,
+                warehouse_id,
+            )
+
+        if inventory.quantity > 0:
+            raise InventoryNotEmptyError(
+                product_id,
+                warehouse_id,
+            )
+
+        await db.delete(inventory)
+        await db.flush()

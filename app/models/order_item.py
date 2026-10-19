@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint, Uuid
+from sqlalchemy import CheckConstraint, ForeignKey, Index, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -18,6 +18,7 @@ UQ_ORDER_ITEMS_ORDER_PRODUCT = "uq_order_items_order_product"
 UQ_ORDER_ITEMS_ORDER_POSITION = "uq_order_items_order_position"
 CK_ORDER_ITEMS_QUANTITY_POSITIVE = "ck_order_items_quantity_positive"
 CK_ORDER_ITEMS_POSITION_POSITIVE = "ck_order_items_position_positive"
+IX_ORDER_ITEMS_PRODUCT_ID = "ix_order_items_product_id"
 
 
 class OrderItem(Base):
@@ -42,6 +43,10 @@ class OrderItem(Base):
         CheckConstraint(
             "position > 0",
             name=CK_ORDER_ITEMS_POSITION_POSITIVE,
+        ),
+        Index(
+            IX_ORDER_ITEMS_PRODUCT_ID,
+            "product_id",
         ),
     )
 

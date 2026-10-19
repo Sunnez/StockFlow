@@ -36,3 +36,11 @@ class InvalidInventoryQuantityError(ApplicationValidationError):
         super().__init__(
             f"Inventory quantity cannot be negative: {quantity}"
         )
+
+
+class InventoryNotEmptyError(ConflictError):
+    def __init__(self, product_id: UUID, warehouse_id: UUID):
+        super().__init__(
+            f"Inventory for product id={product_id} "
+            f"in warehouse id={warehouse_id} cannot be deleted since it is not empty"
+        )

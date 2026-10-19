@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.schemas.order import OrderCreate, OrderRead
+from app.schemas.order import OrderCreate, OrderRead, OrderUpdate
 from app.services.order import service as order_service
 
 router = APIRouter(
@@ -56,4 +56,34 @@ async def get_order(
     return await order_service.get_order(
         db,
         order_id=order_id,
+    )
+
+
+@router.patch(
+    "/{order_id}",
+    response_model=OrderRead,
+)
+async def update_order(
+    order_id: UUID,
+    data: OrderUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    return await order_service.update_order(
+        db,
+        order_id=order_id,
+        new_items=data.items,
+    )
+
+
+@router.delete(
+    "/{order_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_order(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    await order_service.delete_order(
+        db,
+        order_id=order_id
     )

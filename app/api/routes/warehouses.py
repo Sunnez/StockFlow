@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.schemas.warehouse import WarehouseCreate, WarehouseRead
+from app.schemas.warehouse import WarehouseCreate, WarehouseRead, WarehouseUpdate
 from app.services.warehouse import service as warehouse_service
 
 
@@ -56,6 +56,37 @@ async def get_warehouse(
     db: AsyncSession = Depends(get_db),
 ):
     return await warehouse_service.get_warehouse(
+        db,
+        warehouse_id=warehouse_id,
+    )
+
+
+@router.patch(
+    "/{warehouse_id}",
+    response_model=WarehouseRead,
+)
+async def update_warehouse(
+    warehouse_id: UUID,
+    data: WarehouseUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    return await warehouse_service.update_warehouse(
+        db,
+        warehouse_id=warehouse_id,
+        name=data.name,
+        location=data.location,
+    )
+
+
+@router.delete(
+    "/{warehouse_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_warehouse(
+    warehouse_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    await warehouse_service.delete_warehouse(
         db,
         warehouse_id=warehouse_id,
     )

@@ -1,6 +1,7 @@
 from uuid import UUID
 
-from app.core.exceptions import ApplicationValidationError, NotFoundError
+from app.domain.order import OrderStatus
+from app.core.exceptions import ApplicationValidationError, NotFoundError, ConflictError
 
 
 class DuplicateProductInOrderError(ApplicationValidationError):
@@ -32,4 +33,16 @@ class OrderNotFoundError(NotFoundError):
     def __init__(self, order_id: UUID):
         super().__init__(
             f"Order with id={order_id} does not exist"
+        )
+
+class OrderCannotBeUpdatedError(ConflictError):
+    def __init__(self, order_id: UUID, order_status: OrderStatus):
+        super().__init__(
+            f"Order with id={order_id} cannot be updated while status is '{order_status}'"
+        )
+
+class OrderCannotBeDeletedError(ConflictError):
+    def __init__(self, order_id: UUID, order_status: OrderStatus):
+        super().__init__(
+            f"Order with id={order_id} cannot be deleted while status is '{order_status}'"
         )

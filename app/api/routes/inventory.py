@@ -71,3 +71,19 @@ async def update_inventory(
         product_id=product_id,
         quantity=data.quantity,
     )
+
+
+@router.delete(
+    "/{warehouse_id}/inventory/{product_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_inventory(
+    warehouse_id: UUID,
+    product_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    await inventory_service.delete_inventory(
+        db,
+        warehouse_id=warehouse_id,
+        product_id=product_id
+    )

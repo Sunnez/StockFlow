@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
-from app.schemas.product import ProductCreate, ProductRead
+from app.schemas.product import ProductCreate, ProductRead, ProductUpdate
 from app.services.product import service as product_service
 
 router = APIRouter(
@@ -55,6 +55,38 @@ async def get_product(
     db: AsyncSession = Depends(get_db),
 ):
     return await product_service.get_product(
+        db,
+        product_id=product_id,
+    )
+
+
+@router.patch(
+    "/{product_id}",
+    response_model=ProductRead,
+)
+async def update_product(
+    product_id: UUID,
+    data: ProductUpdate,
+    db: AsyncSession = Depends(get_db),
+):
+    return await product_service.update_product(
+        db,
+        product_id=product_id,
+        name= data.name,
+        sku=data.sku,
+    )
+
+
+@router.delete(
+    "/{product_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_product(
+    product_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+
+    await product_service.delete_product(
         db,
         product_id=product_id,
     )
