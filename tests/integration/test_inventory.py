@@ -602,3 +602,67 @@ async def test_delete_inventory_with_invalid_uuid(
     response = await client.delete(f"/warehouses/not-a-uuid/inventory/{uuid4()}")
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_inventory_below_reserved_quantity_is_rejected(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+    warehouse = await create_warehouse(client)
+
+    await create_inventory(
+        client,
+        warehouse_id=warehouse["id"],
+        product_id=product["id"],
+        quantity=10,
+    )
+
+    order_response = await client.post(
+        "/orders",
+        json={
+            "items": [
+                {
+                    "product_id": product["id"],
+                    "quantity": 6,
+                },
+            ],
+        },
+    )
+
+    assert order_response.status_code == 201
+
+    order = order_response.json()
+
+    allocation_response = await client.post(
+        f"/orders/{order['id']}/allocate"
+    )
+
+    assert allocation_response.status_code == 200
+
+    update_response = await client.patch(
+        f"/warehouses/{warehouse['id']}/inventory/{product['id']}",
+        json={
+            "quantity": 5,
+        },
+    )
+
+    assert update_response.status_code == 409
+
+    assert update_response.json()["detail"] == (
+        f"Inventory quantity for product id={product['id']} "
+        f"in warehouse id={warehouse['id']} cannot be set to 5 "
+        f"because 6 units are reserved"
+    )
+
+    inventory_response = await client.get(
+        f"/warehouses/{warehouse['id']}/inventory"
+    )
+
+    assert inventory_response.status_code == 200
+
+    inventory = inventory_response.json()[0]
+
+    assert inventory["quantity"] == 10
+    assert inventory["reserved_quantity"] == 6
+    assert inventory["available_quantity"] == 4
