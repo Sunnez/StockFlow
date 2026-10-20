@@ -76,8 +76,7 @@ async def create_inventory(
 
         if (
             isinstance(exc.orig, UniqueViolation)
-            and constraint_name
-            == UQ_INVENTORY_PRODUCT_WAREHOUSE
+            and constraint_name == UQ_INVENTORY_PRODUCT_WAREHOUSE
         ):
             raise InventoryAlreadyExistsError(
                 product_id=product_id,
@@ -86,23 +85,16 @@ async def create_inventory(
 
         if isinstance(exc.orig, ForeignKeyViolation):
             if constraint_name == FK_INVENTORY_PRODUCT:
-                raise ProductNotFoundError(
-                    product_id
-                ) from exc
+                raise ProductNotFoundError(product_id) from exc
 
             if constraint_name == FK_INVENTORY_WAREHOUSE:
-                raise WarehouseNotFoundError(
-                    warehouse_id
-                ) from exc
+                raise WarehouseNotFoundError(warehouse_id) from exc
 
         if (
             isinstance(exc.orig, CheckViolation)
-            and constraint_name
-            == CK_INVENTORY_QUANTITY_NON_NEGATIVE
+            and constraint_name == CK_INVENTORY_QUANTITY_NON_NEGATIVE
         ):
-            raise InvalidInventoryQuantityError(
-                quantity
-            ) from exc
+            raise InvalidInventoryQuantityError(quantity) from exc
 
         raise
 
@@ -126,9 +118,7 @@ async def list_warehouse_inventory(
 
     result = await db.execute(
         select(Inventory)
-        .where(
-            Inventory.warehouse_id == warehouse_id
-        )
+        .where(Inventory.warehouse_id == warehouse_id)
         .order_by(Inventory.id)
         .limit(limit)
         .offset(offset)
@@ -155,9 +145,7 @@ async def update_inventory_quantity(
             )
 
             if warehouse is None:
-                raise WarehouseNotFoundError(
-                    warehouse_id
-                )
+                raise WarehouseNotFoundError(warehouse_id)
 
             result = await db.execute(
                 select(Inventory)
@@ -193,12 +181,9 @@ async def update_inventory_quantity(
 
         if (
             isinstance(exc.orig, CheckViolation)
-            and constraint_name
-            == CK_INVENTORY_QUANTITY_NON_NEGATIVE
+            and constraint_name == CK_INVENTORY_QUANTITY_NON_NEGATIVE
         ):
-            raise InvalidInventoryQuantityError(
-                quantity
-            ) from exc
+            raise InvalidInventoryQuantityError(quantity) from exc
 
         raise
 
@@ -239,7 +224,9 @@ async def delete_inventory(
         allocation_id = result.scalar_one_or_none()
 
         if allocation_id is not None:
-            raise InventoryUsedInAllocationError(product_id=product_id, warehouse_id=warehouse_id)
+            raise InventoryUsedInAllocationError(
+                product_id=product_id, warehouse_id=warehouse_id
+            )
 
         await db.delete(inventory)
         await db.flush()

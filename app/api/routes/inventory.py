@@ -83,7 +83,5 @@ async def delete_inventory(
     db: AsyncSession = Depends(get_db),
 ):
     await inventory_service.delete_inventory(
-        db,
-        warehouse_id=warehouse_id,
-        product_id=product_id
+        db, warehouse_id=warehouse_id, product_id=product_id
     )

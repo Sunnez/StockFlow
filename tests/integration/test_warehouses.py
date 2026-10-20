@@ -74,9 +74,7 @@ async def test_get_warehouse_by_id(
 
     warehouse_id = create_response.json()["id"]
 
-    get_response = await client.get(
-        f"/warehouses/{warehouse_id}"
-    )
+    get_response = await client.get(f"/warehouses/{warehouse_id}")
 
     assert get_response.status_code == 200
 
@@ -93,9 +91,7 @@ async def test_get_warehouse_by_nonexistent_id(
 ) -> None:
     warehouse_id = uuid4()
 
-    response = await client.get(
-        f"/warehouses/{warehouse_id}"
-    )
+    response = await client.get(f"/warehouses/{warehouse_id}")
 
     assert response.status_code == 404
     assert response.json()["detail"] == (
@@ -107,9 +103,7 @@ async def test_get_warehouse_by_nonexistent_id(
 async def test_get_warehouse_with_invalid_uuid(
     client: AsyncClient,
 ) -> None:
-    response = await client.get(
-        "/warehouses/not-a-uuid"
-    )
+    response = await client.get("/warehouses/not-a-uuid")
 
     assert response.status_code == 422
 
@@ -153,9 +147,7 @@ async def test_get_warehouses_list(
     assert create_response.status_code == 201
     warehouses.append(create_response.json())
 
-    response = await client.get(
-        "/warehouses"
-    )
+    response = await client.get("/warehouses")
 
     assert response.status_code == 200
 
@@ -431,9 +423,7 @@ async def test_update_warehouse_with_duplicate_name(
         "Warehouse with name='Riga Warehouse' already exists"
     )
 
-    get_response = await client.get(
-        f"/warehouses/{second_warehouse['id']}"
-    )
+    get_response = await client.get(f"/warehouses/{second_warehouse['id']}")
 
     assert get_response.status_code == 200
     assert get_response.json()["name"] == "Tallinn Warehouse"
@@ -459,16 +449,12 @@ async def test_delete_warehouse(
 ) -> None:
     warehouse = await create_warehouse(client)
 
-    response = await client.delete(
-        f"/warehouses/{warehouse['id']}"
-    )
+    response = await client.delete(f"/warehouses/{warehouse['id']}")
 
     assert response.status_code == 204
     assert response.content == b""
 
-    get_response = await client.get(
-        f"/warehouses/{warehouse['id']}"
-    )
+    get_response = await client.get(f"/warehouses/{warehouse['id']}")
 
     assert get_response.status_code == 404
 
@@ -479,9 +465,7 @@ async def test_delete_nonexistent_warehouse(
 ) -> None:
     warehouse_id = uuid4()
 
-    response = await client.delete(
-        f"/warehouses/{warehouse_id}"
-    )
+    response = await client.delete(f"/warehouses/{warehouse_id}")
 
     assert response.status_code == 404
 
@@ -500,9 +484,7 @@ async def test_delete_warehouse_with_inventory(
         quantity=0,
     )
 
-    response = await client.delete(
-        f"/warehouses/{warehouse['id']}"
-    )
+    response = await client.delete(f"/warehouses/{warehouse['id']}")
 
     assert response.status_code == 409
     assert response.json()["detail"] == (
@@ -510,8 +492,6 @@ async def test_delete_warehouse_with_inventory(
         f"because it has inventory entries"
     )
 
-    get_response = await client.get(
-        f"/warehouses/{warehouse['id']}"
-    )
+    get_response = await client.get(f"/warehouses/{warehouse['id']}")
 
     assert get_response.status_code == 200

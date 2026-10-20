@@ -67,31 +67,24 @@ async def list_products(
     offset: int,
 ) -> Sequence[Product]:
     result = await db.execute(
-        select(Product)
-        .order_by(Product.id)
-        .limit(limit)
-        .offset(offset)
+        select(Product).order_by(Product.id).limit(limit).offset(offset)
     )
 
     return result.scalars().all()
 
 
 async def update_product(
-        db: AsyncSession,
-        *,
-        product_id: UUID,
-        name: str | None,
-        sku: str | None,
+    db: AsyncSession,
+    *,
+    product_id: UUID,
+    name: str | None,
+    sku: str | None,
 ) -> Product:
     if name is None and sku is None:
         raise ProductUpdateError(product_id)
     try:
         async with db.begin():
-            stmt = (
-                select(Product)
-                .where(Product.id == product_id)
-                .with_for_update()
-            )
+            stmt = select(Product).where(Product.id == product_id).with_for_update()
 
             result = await db.execute(stmt)
 
@@ -106,25 +99,23 @@ async def update_product(
 
             await db.flush()
     except IntegrityError as exc:
-        if (isinstance(exc.orig, UniqueViolation)
-             and get_constraint_name(exc) == UQ_PRODUCTS_SKU
-             and sku is not None):
+        if (
+            isinstance(exc.orig, UniqueViolation)
+            and get_constraint_name(exc) == UQ_PRODUCTS_SKU
+            and sku is not None
+        ):
             raise ProductSkuAlreadyExistsError(sku) from exc
         raise
     return product
 
 
 async def delete_product(
-        db: AsyncSession,
-        *,
-        product_id: UUID,
+    db: AsyncSession,
+    *,
+    product_id: UUID,
 ) -> None:
     async with db.begin():
-        stmt = (
-            select(Product)
-            .where(Product.id == product_id)
-            .with_for_update()
-        )
+        stmt = select(Product).where(Product.id == product_id).with_for_update()
 
         result = await db.execute(stmt)
 
@@ -158,6 +149,6 @@ async def delete_product(
 
         for inventory in inventory_rows:
             await db.delete(inventory)
-        
+
         await db.delete(product)
         await db.flush()

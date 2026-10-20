@@ -25,7 +25,6 @@ IX_ORDER_ITEMS_PRODUCT_ID = "ix_order_items_product_id"
 class OrderItem(Base):
     __tablename__ = "order_items"
 
-
     __table_args__ = (
         UniqueConstraint(
             "order_id",
@@ -77,9 +76,7 @@ class OrderItem(Base):
         nullable=False,
     )
 
-    quantity: Mapped[int] = mapped_column(
-        nullable=False
-    )
+    quantity: Mapped[int] = mapped_column(nullable=False)
 
     position: Mapped[int] = mapped_column(
         nullable=False,

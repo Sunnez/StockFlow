@@ -54,7 +54,9 @@ async def test_create_product_with_duplicate_sku(
 
     assert duplicate_response.status_code == 409
 
-    assert duplicate_response.json()["detail"] == ("Product with sku='RTX5090' already exists")
+    assert duplicate_response.json()["detail"] == (
+        "Product with sku='RTX5090' already exists"
+    )
 
 
 @pytest.mark.asyncio
@@ -66,16 +68,14 @@ async def test_get_product_by_id(
         json={
             "name": "NVIDIA RTX 5090",
             "sku": "RTX5090",
-        }
+        },
     )
 
     assert create_response.status_code == 201
 
     product_id = create_response.json()["id"]
 
-    get_response = await client.get(
-        f"/products/{product_id}"
-    )
+    get_response = await client.get(f"/products/{product_id}")
 
     assert get_response.status_code == 200
 
@@ -92,12 +92,12 @@ async def test_get_product_by_nonexistent_id(
 ) -> None:
     product_id = uuid4()
 
-    get_response = await client.get(
-        f"/products/{product_id}"
-    )
+    get_response = await client.get(f"/products/{product_id}")
 
     assert get_response.status_code == 404
-    assert get_response.json()["detail"] == (f"Product with id={product_id} does not exist")
+    assert get_response.json()["detail"] == (
+        f"Product with id={product_id} does not exist"
+    )
 
 
 @pytest.mark.asyncio
@@ -105,60 +105,42 @@ async def test_get_products_list(
     client: AsyncClient,
 ) -> None:
     products_list = []
-    
+
     create_response = await client.post(
         "/products",
         json={
             "name": "NVIDIA RTX 5090",
             "sku": "RTX5090",
-        }
+        },
     )
 
     assert create_response.status_code == 201
     data = create_response.json()
-    products_list.append(
-        {
-            "id": data["id"],
-            "name": data["name"],
-            "sku": data["sku"]
-        }
-    )
+    products_list.append({"id": data["id"], "name": data["name"], "sku": data["sku"]})
 
     create_response = await client.post(
         "/products",
         json={
             "name": "NVIDIA RTX 4090",
             "sku": "RTX4090",
-        }
+        },
     )
 
     assert create_response.status_code == 201
     data = create_response.json()
-    products_list.append(
-        {
-            "id": data["id"],
-            "name": data["name"],
-            "sku": data["sku"]
-        }
-    )
+    products_list.append({"id": data["id"], "name": data["name"], "sku": data["sku"]})
 
     create_response = await client.post(
         "/products",
         json={
             "name": "NVIDIA RTX 1090",
             "sku": "RTX1090",
-        }
+        },
     )
 
     assert create_response.status_code == 201
     data = create_response.json()
-    products_list.append(
-        {
-            "id": data["id"],
-            "name": data["name"],
-            "sku": data["sku"]
-        }
-    )
+    products_list.append({"id": data["id"], "name": data["name"], "sku": data["sku"]})
 
     get_response = await client.get(
         "/products",
@@ -168,7 +150,9 @@ async def test_get_products_list(
 
     data = get_response.json()
 
-    assert sorted(products_list, key=lambda product: product["id"]) == sorted(data, key=lambda product: product["id"])
+    assert sorted(products_list, key=lambda product: product["id"]) == sorted(
+        data, key=lambda product: product["id"]
+    )
 
 
 @pytest.mark.asyncio
@@ -176,67 +160,49 @@ async def test_get_products_pagination(
     client: AsyncClient,
 ) -> None:
     products_list = []
-    
+
     create_response = await client.post(
         "/products",
         json={
             "name": "NVIDIA RTX 5090",
             "sku": "RTX5090",
-        }
+        },
     )
 
     assert create_response.status_code == 201
     data = create_response.json()
-    products_list.append(
-        {
-            "id": data["id"],
-            "name": data["name"],
-            "sku": data["sku"]
-        }
-    )
+    products_list.append({"id": data["id"], "name": data["name"], "sku": data["sku"]})
 
     create_response = await client.post(
         "/products",
         json={
             "name": "NVIDIA RTX 4090",
             "sku": "RTX4090",
-        }
+        },
     )
 
     assert create_response.status_code == 201
     data = create_response.json()
-    products_list.append(
-        {
-            "id": data["id"],
-            "name": data["name"],
-            "sku": data["sku"]
-        }
-    )
+    products_list.append({"id": data["id"], "name": data["name"], "sku": data["sku"]})
 
     create_response = await client.post(
         "/products",
         json={
             "name": "NVIDIA RTX 1090",
             "sku": "RTX1090",
-        }
+        },
     )
 
     assert create_response.status_code == 201
     data = create_response.json()
-    products_list.append(
-        {
-            "id": data["id"],
-            "name": data["name"],
-            "sku": data["sku"]
-        }
-    )
+    products_list.append({"id": data["id"], "name": data["name"], "sku": data["sku"]})
 
     get_response = await client.get(
         "/products",
         params={
             "limit": 2,
             "offset": 1,
-        }
+        },
     )
 
     assert get_response.status_code == 200
@@ -273,9 +239,7 @@ async def test_get_products_invalid_pagination(
 async def test_get_product_with_invalid_uuid(
     client: AsyncClient,
 ) -> None:
-    response = await client.get(
-        "/products/not-a-uuid"
-    )
+    response = await client.get("/products/not-a-uuid")
 
     assert response.status_code == 422
 
@@ -421,9 +385,7 @@ async def test_update_nonexistent_product(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == (
-        f"Product with id={product_id} does not exist"
-    )
+    assert response.json()["detail"] == (f"Product with id={product_id} does not exist")
 
 
 @pytest.mark.asyncio
@@ -450,13 +412,9 @@ async def test_update_product_with_duplicate_sku(
     )
 
     assert response.status_code == 409
-    assert response.json()["detail"] == (
-        "Product with sku='RTX5090' already exists"
-    )
+    assert response.json()["detail"] == ("Product with sku='RTX5090' already exists")
 
-    get_response = await client.get(
-        f"/products/{second_product['id']}"
-    )
+    get_response = await client.get(f"/products/{second_product['id']}")
 
     assert get_response.status_code == 200
     assert get_response.json()["sku"] == "RTX4090"
@@ -544,16 +502,12 @@ async def test_delete_product(
 ) -> None:
     product = await create_product(client)
 
-    response = await client.delete(
-        f"/products/{product['id']}"
-    )
+    response = await client.delete(f"/products/{product['id']}")
 
     assert response.status_code == 204
     assert response.content == b""
 
-    get_response = await client.get(
-        f"/products/{product['id']}"
-    )
+    get_response = await client.get(f"/products/{product['id']}")
 
     assert get_response.status_code == 404
 
@@ -564,14 +518,10 @@ async def test_delete_nonexistent_product(
 ) -> None:
     product_id = uuid4()
 
-    response = await client.delete(
-        f"/products/{product_id}"
-    )
+    response = await client.delete(f"/products/{product_id}")
 
     assert response.status_code == 404
-    assert response.json()["detail"] == (
-        f"Product with id={product_id} does not exist"
-    )
+    assert response.json()["detail"] == (f"Product with id={product_id} does not exist")
 
 
 @pytest.mark.asyncio
@@ -596,14 +546,11 @@ async def test_delete_product_used_in_order(
 
     order = order_response.json()
 
-    response = await client.delete(
-        f"/products/{product['id']}"
-    )
+    response = await client.delete(f"/products/{product['id']}")
 
     assert response.status_code == 409
     assert response.json()["detail"] == (
-        f"Product with id={product['id']} "
-        f"is used in order with id={order['id']}"
+        f"Product with id={product['id']} is used in order with id={order['id']}"
     )
 
 
@@ -621,19 +568,14 @@ async def test_delete_product_with_stock(
         quantity=10,
     )
 
-    response = await client.delete(
-        f"/products/{product['id']}"
-    )
+    response = await client.delete(f"/products/{product['id']}")
 
     assert response.status_code == 409
     assert response.json()["detail"] == (
-        f"Product with id={product['id']} "
-        "has stock in inventory"
+        f"Product with id={product['id']} has stock in inventory"
     )
 
-    get_response = await client.get(
-        f"/products/{product['id']}"
-    )
+    get_response = await client.get(f"/products/{product['id']}")
 
     assert get_response.status_code == 200
 
@@ -652,21 +594,15 @@ async def test_delete_product_with_empty_inventory(
         quantity=0,
     )
 
-    response = await client.delete(
-        f"/products/{product['id']}"
-    )
+    response = await client.delete(f"/products/{product['id']}")
 
     assert response.status_code == 204
 
-    product_response = await client.get(
-        f"/products/{product['id']}"
-    )
+    product_response = await client.get(f"/products/{product['id']}")
 
     assert product_response.status_code == 404
 
-    inventory_response = await client.get(
-        f"/warehouses/{warehouse['id']}/inventory"
-    )
+    inventory_response = await client.get(f"/warehouses/{warehouse['id']}/inventory")
 
     assert inventory_response.status_code == 200
     assert inventory_response.json() == []

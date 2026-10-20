@@ -29,9 +29,9 @@ from app.services.order.exceptions import (
 
 
 async def create_order(
-        db: AsyncSession,
-        *,
-        items: list[OrderItemCreate],
+    db: AsyncSession,
+    *,
+    items: list[OrderItemCreate],
 ) -> Order:
     if not items:
         raise EmptyOrderError()
@@ -74,22 +74,18 @@ async def create_order(
         db.add(order)
         await db.flush()
 
-
     return order
 
 
 async def list_orders(
-        db: AsyncSession,
-        *,
-        limit: int,
-        offset: int,
+    db: AsyncSession,
+    *,
+    limit: int,
+    offset: int,
 ) -> Sequence[Order]:
     result = await db.execute(
         select(Order)
-        .options(
-            selectinload(Order.items)
-            .selectinload(OrderItem.allocations)
-        )
+        .options(selectinload(Order.items).selectinload(OrderItem.allocations))
         .order_by(Order.created_at.desc(), Order.id.desc())
         .limit(limit)
         .offset(offset)
@@ -99,17 +95,14 @@ async def list_orders(
 
 
 async def get_order(
-        db: AsyncSession,
-        *,
-        order_id: UUID,
+    db: AsyncSession,
+    *,
+    order_id: UUID,
 ) -> Order:
     stmt = (
         select(Order)
         .where(Order.id == order_id)
-        .options(
-            selectinload(Order.items)
-            .selectinload(OrderItem.allocations)
-        )
+        .options(selectinload(Order.items).selectinload(OrderItem.allocations))
     )
     result = await db.execute(stmt)
 
@@ -122,10 +115,10 @@ async def get_order(
 
 
 async def update_order(
-        db: AsyncSession,
-        *,
-        order_id: UUID,
-        new_items: list[OrderItemCreate],
+    db: AsyncSession,
+    *,
+    order_id: UUID,
+    new_items: list[OrderItemCreate],
 ) -> Order:
     if not new_items:
         raise EmptyOrderError()
@@ -140,10 +133,7 @@ async def update_order(
         stmt = (
             select(Order)
             .where(Order.id == order_id)
-            .options(
-                selectinload(Order.items)
-                .selectinload(OrderItem.allocations)
-            )
+            .options(selectinload(Order.items).selectinload(OrderItem.allocations))
             .with_for_update()
         )
 
@@ -191,16 +181,12 @@ async def update_order(
 
 
 async def delete_order(
-        db: AsyncSession,
-        *,
-        order_id: UUID,
+    db: AsyncSession,
+    *,
+    order_id: UUID,
 ) -> None:
     async with db.begin():
-        stmt = (
-            select(Order)
-            .where(Order.id == order_id)
-            .with_for_update()
-        )
+        stmt = select(Order).where(Order.id == order_id).with_for_update()
 
         result = await db.execute(stmt)
 
@@ -226,10 +212,7 @@ async def allocate_order(
         stmt = (
             select(Order)
             .where(Order.id == order_id)
-            .options(
-                selectinload(Order.items)
-                .selectinload(OrderItem.allocations)
-            )
+            .options(selectinload(Order.items).selectinload(OrderItem.allocations))
             .with_for_update()
         )
 
@@ -242,10 +225,7 @@ async def allocate_order(
         if order.status != OrderStatus.PENDING:
             raise OrderCannotBeAllocatedError(order_id, order.status)
 
-        product_ids = {
-            item.product_id
-            for item in order.items
-        }
+        product_ids = {item.product_id for item in order.items}
 
         stmt = (
             select(Inventory)
@@ -272,7 +252,9 @@ async def allocate_order(
         for item in order.items:
             product_inventories = inventories_by_product[item.product_id]
 
-            total_available = sum(inventory.available_quantity for inventory in product_inventories)
+            total_available = sum(
+                inventory.available_quantity for inventory in product_inventories
+            )
 
             if total_available < item.quantity:
                 raise InsufficientInventoryError(
@@ -294,11 +276,11 @@ async def allocate_order(
 
                 allocated_quantity = min(remaining_quantity, available_quantity)
 
-                inventory.reserved_quantity += (
-                    allocated_quantity
-                )
+                inventory.reserved_quantity += allocated_quantity
 
-                allocation = OrderAllocation(inventory_id=inventory.id, quantity=allocated_quantity)
+                allocation = OrderAllocation(
+                    inventory_id=inventory.id, quantity=allocated_quantity
+                )
 
                 item.allocations.append(allocation)
 
@@ -320,10 +302,7 @@ async def fulfill_order(
         stmt = (
             select(Order)
             .where(Order.id == order_id)
-            .options(
-                selectinload(Order.items)
-                .selectinload(OrderItem.allocations)
-            )
+            .options(selectinload(Order.items).selectinload(OrderItem.allocations))
             .with_for_update()
         )
 
@@ -356,16 +335,16 @@ async def fulfill_order(
         result = await db.execute(stmt)
         inventories = result.scalars().all()
 
-        inventories_by_id = {
-            inventory.id: inventory
-            for inventory in inventories
-        }
+        inventories_by_id = {inventory.id: inventory for inventory in inventories}
 
         for item in order.items:
             for allocation in item.allocations:
                 inventory = inventories_by_id[allocation.inventory_id]
 
-                if (inventory.quantity < allocation.quantity or inventory.reserved_quantity < allocation.quantity):
+                if (
+                    inventory.quantity < allocation.quantity
+                    or inventory.reserved_quantity < allocation.quantity
+                ):
                     raise InventoryReservationMismatchError(
                         inventory_id=inventory.id,
                         allocation_quantity=allocation.quantity,
@@ -392,10 +371,7 @@ async def cancel_order(
         stmt = (
             select(Order)
             .where(Order.id == order_id)
-            .options(
-                selectinload(Order.items)
-                .selectinload(OrderItem.allocations)
-            )
+            .options(selectinload(Order.items).selectinload(OrderItem.allocations))
             .with_for_update()
         )
 
@@ -435,21 +411,13 @@ async def cancel_order(
             result = await db.execute(stmt)
             inventories = result.scalars().all()
 
-            inventories_by_id = {
-                inventory.id: inventory
-                for inventory in inventories
-            }
+            inventories_by_id = {inventory.id: inventory for inventory in inventories}
 
             for item in order.items:
                 for allocation in item.allocations:
-                    inventory = inventories_by_id[
-                        allocation.inventory_id
-                    ]
+                    inventory = inventories_by_id[allocation.inventory_id]
 
-                    if (
-                        inventory.reserved_quantity
-                        < allocation.quantity
-                    ):
+                    if inventory.reserved_quantity < allocation.quantity:
                         raise InventoryReservationMismatchError(
                             inventory_id=inventory.id,
                             allocation_quantity=allocation.quantity,
@@ -457,9 +425,7 @@ async def cancel_order(
                             reserved_quantity=inventory.reserved_quantity,
                         )
 
-                    inventory.reserved_quantity -= (
-                        allocation.quantity
-                    )
+                    inventory.reserved_quantity -= allocation.quantity
 
         order.status = OrderStatus.CANCELLED
 

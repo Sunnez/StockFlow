@@ -33,10 +33,7 @@ class Order(Base):
             name=CK_ORDERS_STATUS,
             native_enum=False,
             create_constraint=True,
-            values_callable=lambda enum_class: [
-                member.value
-                for member in enum_class
-            ],
+            values_callable=lambda enum_class: [member.value for member in enum_class],
         ),
         nullable=False,
         default=OrderStatus.PENDING,

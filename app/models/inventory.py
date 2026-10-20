@@ -19,8 +19,12 @@ from app.db.base import Base
 
 UQ_INVENTORY_PRODUCT_WAREHOUSE = "uq_inventory_product_warehouse"
 CK_INVENTORY_QUANTITY_NON_NEGATIVE = "ck_inventory_quantity_non_negative"
-CK_INVENTORY_RESERVED_QUANTITY_NON_NEGATIVE = "ck_inventory_reserved_quantity_non_negative"
-CK_INVENTORY_RESERVED_NOT_GREATER_THAN_QUANTITY = "ck_inventory_reserved_not_greater_than_quantity"
+CK_INVENTORY_RESERVED_QUANTITY_NON_NEGATIVE = (
+    "ck_inventory_reserved_quantity_non_negative"
+)
+CK_INVENTORY_RESERVED_NOT_GREATER_THAN_QUANTITY = (
+    "ck_inventory_reserved_not_greater_than_quantity"
+)
 
 FK_INVENTORY_PRODUCT = "fk_inventory_product"
 FK_INVENTORY_WAREHOUSE = "fk_inventory_warehouse"

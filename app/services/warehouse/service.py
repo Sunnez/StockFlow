@@ -68,30 +68,25 @@ async def list_warehouses(
     offset: int,
 ) -> Sequence[Warehouse]:
     result = await db.execute(
-        select(Warehouse)
-        .order_by(Warehouse.id)
-        .limit(limit)
-        .offset(offset)
+        select(Warehouse).order_by(Warehouse.id).limit(limit).offset(offset)
     )
 
     return result.scalars().all()
 
 
 async def update_warehouse(
-        db: AsyncSession,
-        *,
-        warehouse_id: UUID,
-        name: str | None,
-        location: str | None,
+    db: AsyncSession,
+    *,
+    warehouse_id: UUID,
+    name: str | None,
+    location: str | None,
 ) -> Warehouse:
     if name is None and location is None:
         raise WarehouseUpdateError(warehouse_id)
     try:
         async with db.begin():
             stmt = (
-                select(Warehouse)
-                .where(Warehouse.id == warehouse_id)
-                .with_for_update()
+                select(Warehouse).where(Warehouse.id == warehouse_id).with_for_update()
             )
             result = await db.execute(stmt)
             warehouse = result.scalar_one_or_none()
@@ -106,7 +101,7 @@ async def update_warehouse(
             await db.flush()
     except IntegrityError as exc:
         if (
-            isinstance(exc.orig, UniqueViolation) 
+            isinstance(exc.orig, UniqueViolation)
             and get_constraint_name(exc) == UQ_WAREHOUSES_NAME
             and name is not None
         ):
@@ -117,16 +112,12 @@ async def update_warehouse(
 
 
 async def delete_warehouse(
-        db: AsyncSession,
-        *,
-        warehouse_id: UUID,
+    db: AsyncSession,
+    *,
+    warehouse_id: UUID,
 ) -> None:
     async with db.begin():
-        stmt = (
-            select(Warehouse)
-            .where(Warehouse.id == warehouse_id)
-            .with_for_update()
-        )
+        stmt = select(Warehouse).where(Warehouse.id == warehouse_id).with_for_update()
 
         result = await db.execute(stmt)
 
@@ -136,9 +127,7 @@ async def delete_warehouse(
             raise WarehouseNotFoundError(warehouse_id)
 
         stmt = (
-            select(Inventory.id)
-            .where(Inventory.warehouse_id == warehouse_id)
-            .limit(1)
+            select(Inventory.id).where(Inventory.warehouse_id == warehouse_id).limit(1)
         )
 
         result = await db.execute(stmt)
@@ -146,6 +135,6 @@ async def delete_warehouse(
 
         if inventory_id is not None:
             raise WarehouseHasInventoryError(warehouse_id)
-        
+
         await db.delete(warehouse)
         await db.flush()

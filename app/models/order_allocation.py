@@ -21,9 +21,12 @@ if TYPE_CHECKING:
 
 FK_ORDER_ALLOCATION_ORDER_ITEM = "fk_order_allocation_order_item"
 FK_ORDER_ALLOCATION_INVENTORY = "fk_order_allocation_inventory"
-CK_ORDER_ALLOCATION_QUANTITY_GREATER_THAN_0 = "ck_order_allocation_quantity_greater_than_0"
+CK_ORDER_ALLOCATION_QUANTITY_GREATER_THAN_0 = (
+    "ck_order_allocation_quantity_greater_than_0"
+)
 UQ_ORDER_ALLOCATION_ORDER_ITEM_INVENTORY = "uq_order_allocation_order_item_inventory"
 IX_ORDER_ALLOCATION_INVENTORY = "ix_order_allocation_inventory"
+
 
 class OrderAllocation(Base):
     __tablename__ = "order_allocations"
@@ -41,7 +44,7 @@ class OrderAllocation(Base):
         Index(
             IX_ORDER_ALLOCATION_INVENTORY,
             "inventory_id",
-        )
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

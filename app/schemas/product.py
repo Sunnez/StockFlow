@@ -49,8 +49,6 @@ class ProductUpdate(BaseModel):
     @model_validator(mode="after")
     def validate_update(self):
         if self.name is None and self.sku is None:
-            raise ValueError(
-                "At least one field must be provided"
-            )
+            raise ValueError("At least one field must be provided")
 
         return self

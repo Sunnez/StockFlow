@@ -5,11 +5,4 @@ from app.models.order_item import OrderItem
 from app.models.product import Product
 from app.models.warehouse import Warehouse
 
-__all__ = [
-    "Inventory",
-    "Order",
-    "OrderAllocation",
-    "OrderItem",
-    "Product",
-    "Warehouse"
-]
+__all__ = ["Inventory", "Order", "OrderAllocation", "OrderItem", "Product", "Warehouse"]

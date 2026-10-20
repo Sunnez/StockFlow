@@ -72,7 +72,7 @@ async def update_product(
     return await product_service.update_product(
         db,
         product_id=product_id,
-        name= data.name,
+        name=data.name,
         sku=data.sku,
     )
 

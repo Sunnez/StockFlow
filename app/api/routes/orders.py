@@ -83,10 +83,7 @@ async def delete_order(
     order_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    await order_service.delete_order(
-        db,
-        order_id=order_id
-    )
+    await order_service.delete_order(db, order_id=order_id)
 
 
 @router.post(

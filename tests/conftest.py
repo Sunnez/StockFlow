@@ -32,9 +32,7 @@ def pytest_asyncio_loop_factories(
 
 
 if settings.test_database_url is None:
-    raise RuntimeError(
-        "TEST_DATABASE_URL is not configured"
-    )
+    raise RuntimeError("TEST_DATABASE_URL is not configured")
 
 
 test_engine = create_async_engine(
@@ -58,9 +56,7 @@ async def override_get_db() -> AsyncIterator[AsyncSession]:
 async def clear_database() -> None:
     async with test_engine.begin() as connection:
         for table in reversed(Base.metadata.sorted_tables):
-            await connection.execute(
-                table.delete()
-            )
+            await connection.execute(table.delete())
 
 
 @pytest_asyncio.fixture(
@@ -70,19 +66,13 @@ async def clear_database() -> None:
 )
 async def prepare_database() -> AsyncIterator[None]:
     async with test_engine.begin() as connection:
-        await connection.run_sync(
-            Base.metadata.drop_all
-        )
-        await connection.run_sync(
-            Base.metadata.create_all
-        )
+        await connection.run_sync(Base.metadata.drop_all)
+        await connection.run_sync(Base.metadata.create_all)
 
     yield
 
     async with test_engine.begin() as connection:
-        await connection.run_sync(
-            Base.metadata.drop_all
-        )
+        await connection.run_sync(Base.metadata.drop_all)
 
     await test_engine.dispose()
 
@@ -98,9 +88,7 @@ async def clean_database() -> AsyncIterator[None]:
 
 @pytest_asyncio.fixture
 async def client() -> AsyncIterator[AsyncClient]:
-    fastapi_app.dependency_overrides[get_db] = (
-        override_get_db
-    )
+    fastapi_app.dependency_overrides[get_db] = override_get_db
 
     transport = ASGITransport(
         app=fastapi_app,

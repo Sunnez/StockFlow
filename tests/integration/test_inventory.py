@@ -120,9 +120,7 @@ async def test_create_inventory_with_nonexistent_product(
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == (
-        f"Product with id={product_id} does not exist"
-    )
+    assert response.json()["detail"] == (f"Product with id={product_id} does not exist")
 
 
 @pytest.mark.asyncio
@@ -228,9 +226,7 @@ async def test_get_warehouse_inventory(
         quantity=30,
     )
 
-    response = await client.get(
-        f"/warehouses/{warehouse['id']}/inventory"
-    )
+    response = await client.get(f"/warehouses/{warehouse['id']}/inventory")
 
     assert response.status_code == 200
 
@@ -256,9 +252,7 @@ async def test_get_inventory_for_nonexistent_warehouse(
 ) -> None:
     warehouse_id = uuid4()
 
-    response = await client.get(
-        f"/warehouses/{warehouse_id}/inventory"
-    )
+    response = await client.get(f"/warehouses/{warehouse_id}/inventory")
 
     assert response.status_code == 404
     assert response.json()["detail"] == (
@@ -372,10 +366,7 @@ async def test_update_inventory_quantity(
     )
 
     response = await client.patch(
-        (
-            f"/warehouses/{warehouse['id']}"
-            f"/inventory/{product['id']}"
-        ),
+        (f"/warehouses/{warehouse['id']}/inventory/{product['id']}"),
         json={
             "quantity": 99,
         },
@@ -390,9 +381,7 @@ async def test_update_inventory_quantity(
     assert data["warehouse_id"] == warehouse["id"]
     assert data["quantity"] == 99
 
-    get_response = await client.get(
-        f"/warehouses/{warehouse['id']}/inventory"
-    )
+    get_response = await client.get(f"/warehouses/{warehouse['id']}/inventory")
 
     assert get_response.status_code == 200
 
@@ -546,9 +535,7 @@ async def test_delete_empty_inventory(
     assert response.status_code == 204
     assert response.content == b""
 
-    list_response = await client.get(
-        f"/warehouses/{warehouse['id']}/inventory"
-    )
+    list_response = await client.get(f"/warehouses/{warehouse['id']}/inventory")
 
     assert list_response.status_code == 200
     assert list_response.json() == []
@@ -579,9 +566,7 @@ async def test_delete_non_empty_inventory(
         f"cannot be deleted since it is not empty"
     )
 
-    list_response = await client.get(
-        f"/warehouses/{warehouse['id']}/inventory"
-    )
+    list_response = await client.get(f"/warehouses/{warehouse['id']}/inventory")
 
     assert list_response.status_code == 200
 
@@ -614,8 +599,6 @@ async def test_delete_nonexistent_inventory(
 async def test_delete_inventory_with_invalid_uuid(
     client: AsyncClient,
 ) -> None:
-    response = await client.delete(
-        f"/warehouses/not-a-uuid/inventory/{uuid4()}"
-    )
+    response = await client.delete(f"/warehouses/not-a-uuid/inventory/{uuid4()}")
 
     assert response.status_code == 422

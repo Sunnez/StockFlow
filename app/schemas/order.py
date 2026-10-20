@@ -11,8 +11,9 @@ class OrderCreate(BaseModel):
     items: list[OrderItemCreate] = Field(min_length=1)
 
     model_config = ConfigDict(
-        extra='forbid',
+        extra="forbid",
     )
+
 
 class OrderRead(BaseModel):
     id: UUID
@@ -23,6 +24,7 @@ class OrderRead(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
     )
+
 
 class OrderUpdate(BaseModel):
     items: list[OrderItemCreate] = Field(min_length=1)

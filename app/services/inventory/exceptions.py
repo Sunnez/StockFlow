@@ -33,9 +33,7 @@ class InventoryNotFoundError(NotFoundError):
 
 class InvalidInventoryQuantityError(ApplicationValidationError):
     def __init__(self, quantity: int):
-        super().__init__(
-            f"Inventory quantity cannot be negative: {quantity}"
-        )
+        super().__init__(f"Inventory quantity cannot be negative: {quantity}")
 
 
 class InventoryNotEmptyError(ConflictError):
@@ -47,7 +45,13 @@ class InventoryNotEmptyError(ConflictError):
 
 
 class InventoryQuantityBelowReservedError(ConflictError):
-    def __init__(self, product_id: UUID, warehouse_id: UUID, quantity: int, reserved_quantity: int):
+    def __init__(
+        self,
+        product_id: UUID,
+        warehouse_id: UUID,
+        quantity: int,
+        reserved_quantity: int,
+    ):
         super().__init__(
             f"Inventory quantity for product id={product_id} "
             f"in warehouse id={warehouse_id} cannot be set to {quantity} "
