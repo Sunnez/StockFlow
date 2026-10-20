@@ -4,13 +4,11 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
-
 from tests.factories import (
     create_inventory,
     create_product,
     create_warehouse,
 )
-
 
 pytestmark = pytest.mark.asyncio
 

@@ -18,9 +18,9 @@ from app.models.inventory import (
     UQ_INVENTORY_PRODUCT_WAREHOUSE,
     Inventory,
 )
+from app.models.order_allocation import OrderAllocation
 from app.models.product import Product
 from app.models.warehouse import Warehouse
-from app.models.order_allocation import OrderAllocation
 from app.services.inventory.exceptions import (
     InvalidInventoryQuantityError,
     InventoryAlreadyExistsError,
