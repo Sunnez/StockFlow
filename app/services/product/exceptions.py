@@ -25,9 +25,9 @@ class ProductUpdateError(ApplicationValidationError):
 
 
 class ProductUsedInOrderError(ConflictError):
-    def __init__(self, product_id: UUID, order_item_id: UUID):
+    def __init__(self, product_id: UUID, order_id: UUID):
         super().__init__(
-            f"Product with id={product_id} is used in order with id={order_item_id}"
+            f"Product with id={product_id} is used in order with id={order_id}"
         )
 
 

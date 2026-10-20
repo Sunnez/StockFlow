@@ -140,10 +140,10 @@ async def delete_product(
         )
 
         result = await db.execute(stmt)
-        order_item_order_id = result.scalar_one_or_none()
+        order_id = result.scalar_one_or_none()
 
-        if order_item_order_id is not None:
-            raise ProductUsedInOrderError(product_id, order_item_order_id)
+        if order_id is not None:
+            raise ProductUsedInOrderError(product_id, order_id)
 
         stmt = (
             select(Inventory)

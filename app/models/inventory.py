@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
@@ -7,12 +10,17 @@ from sqlalchemy import (
     UniqueConstraint,
     Uuid,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from app.models.order_allocation import OrderAllocation
 
 from app.db.base import Base
 
 UQ_INVENTORY_PRODUCT_WAREHOUSE = "uq_inventory_product_warehouse"
 CK_INVENTORY_QUANTITY_NON_NEGATIVE = "ck_inventory_quantity_non_negative"
+CK_INVENTORY_RESERVED_QUANTITY_NON_NEGATIVE = "ck_inventory_reserved_quantity_non_negative"
+CK_INVENTORY_RESERVED_NOT_GREATER_THAN_QUANTITY = "ck_inventory_reserved_not_greater_than_quantity"
 
 FK_INVENTORY_PRODUCT = "fk_inventory_product"
 FK_INVENTORY_WAREHOUSE = "fk_inventory_warehouse"
@@ -32,6 +40,14 @@ class Inventory(Base):
         CheckConstraint(
             "quantity >= 0",
             name=CK_INVENTORY_QUANTITY_NON_NEGATIVE,
+        ),
+        CheckConstraint(
+            "reserved_quantity >= 0",
+            name=CK_INVENTORY_RESERVED_QUANTITY_NON_NEGATIVE,
+        ),
+        CheckConstraint(
+            "reserved_quantity <= quantity",
+            name=CK_INVENTORY_RESERVED_NOT_GREATER_THAN_QUANTITY,
         ),
         Index(
             IX_INVENTORY_WAREHOUSE_ID,
@@ -66,3 +82,18 @@ class Inventory(Base):
     quantity: Mapped[int] = mapped_column(
         nullable=False,
     )
+
+    reserved_quantity: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    allocations: Mapped[list[OrderAllocation]] = relationship(
+        back_populates="inventory",
+        passive_deletes=True,
+    )
+
+    @property
+    def available_quantity(self) -> int:
+        return self.quantity - self.reserved_quantity

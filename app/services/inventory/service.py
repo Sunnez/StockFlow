@@ -20,11 +20,14 @@ from app.models.inventory import (
 )
 from app.models.product import Product
 from app.models.warehouse import Warehouse
+from app.models.order_allocation import OrderAllocation
 from app.services.inventory.exceptions import (
     InvalidInventoryQuantityError,
     InventoryAlreadyExistsError,
-    InventoryNotFoundError,
     InventoryNotEmptyError,
+    InventoryNotFoundError,
+    InventoryQuantityBelowReservedError,
+    InventoryUsedInAllocationError,
 )
 from app.services.product.exceptions import ProductNotFoundError
 from app.services.warehouse.exceptions import WarehouseNotFoundError
@@ -173,6 +176,14 @@ async def update_inventory_quantity(
                     warehouse_id=warehouse_id,
                 )
 
+            if quantity < inventory.reserved_quantity:
+                raise InventoryQuantityBelowReservedError(
+                    product_id=product_id,
+                    warehouse_id=warehouse_id,
+                    quantity=quantity,
+                    reserved_quantity=inventory.reserved_quantity,
+                )
+
             inventory.quantity = quantity
 
             await db.flush()
@@ -214,16 +225,21 @@ async def delete_inventory(
         inventory = result.scalar_one_or_none()
 
         if inventory is None:
-            raise InventoryNotFoundError(
-                product_id,
-                warehouse_id,
-            )
+            raise InventoryNotFoundError(product_id, warehouse_id)
 
-        if inventory.quantity > 0:
-            raise InventoryNotEmptyError(
-                product_id,
-                warehouse_id,
-            )
+        if inventory.quantity > 0 or inventory.reserved_quantity > 0:
+            raise InventoryNotEmptyError(product_id, warehouse_id)
+
+        result = await db.execute(
+            select(OrderAllocation.id)
+            .where(OrderAllocation.inventory_id == inventory.id)
+            .limit(1)
+        )
+
+        allocation_id = result.scalar_one_or_none()
+
+        if allocation_id is not None:
+            raise InventoryUsedInAllocationError(product_id=product_id, warehouse_id=warehouse_id)
 
         await db.delete(inventory)
         await db.flush()

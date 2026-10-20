@@ -87,3 +87,45 @@ async def delete_order(
         db,
         order_id=order_id
     )
+
+
+@router.post(
+    "/{order_id}/allocate",
+    response_model=OrderRead,
+)
+async def allocate_order(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    return await order_service.allocate_order(
+        db,
+        order_id=order_id,
+    )
+
+
+@router.post(
+    "/{order_id}/fulfill",
+    response_model=OrderRead,
+)
+async def fulfill_order(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    return await order_service.fulfill_order(
+        db,
+        order_id=order_id,
+    )
+
+
+@router.post(
+    "/{order_id}/cancel",
+    response_model=OrderRead,
+)
+async def cancel_order(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+):
+    return await order_service.cancel_order(
+        db,
+        order_id=order_id,
+    )

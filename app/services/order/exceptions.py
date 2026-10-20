@@ -41,8 +41,50 @@ class OrderCannotBeUpdatedError(ConflictError):
             f"Order with id={order_id} cannot be updated while status is '{order_status}'"
         )
 
+
 class OrderCannotBeDeletedError(ConflictError):
     def __init__(self, order_id: UUID, order_status: OrderStatus):
         super().__init__(
             f"Order with id={order_id} cannot be deleted while status is '{order_status}'"
+        )
+
+
+class OrderCannotBeAllocatedError(ConflictError):
+    def __init__(self, order_id: UUID, order_status: OrderStatus):
+        super().__init__(
+            f"Order with id={order_id} cannot be allocated while status is {order_status}"
+        )
+
+
+class InsufficientInventoryError(ConflictError):
+    def __init__(self, product_id: UUID, requested_quantity: int, available_quantity: int):
+        super().__init__(
+            f"Insufficient inventory for product id={product_id}: "
+            f"requested={requested_quantity}, "
+            f"available={available_quantity}"
+        )
+
+
+class OrderCannotBeFulfilledError(ConflictError):
+    def __init__(self, order_id: UUID, order_status: OrderStatus):
+        super().__init__(
+            f"Order with id={order_id} cannot be fulfilled while status is {order_status}"
+        )
+
+
+class InventoryReservationMismatchError(ConflictError):
+    def __init__(self, inventory_id: UUID, allocation_quantity: int, quantity: int, reserved_quantity: int):
+        super().__init__(
+            f"Inventory id={inventory_id} cannot fulfill allocation "
+            f"quantity={allocation_quantity}: "
+            f"quantity={quantity}, "
+            f"reserved_quantity={reserved_quantity}"
+        )
+
+
+class OrderCannotBeCancelledError(ConflictError):
+    def __init__(self, order_id: UUID, order_status: OrderStatus):
+        super().__init__(
+            f"Order with id={order_id} cannot be cancelled "
+            f"while status is '{order_status}'"
         )

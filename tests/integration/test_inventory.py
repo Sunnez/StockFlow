@@ -523,3 +523,99 @@ async def test_update_inventory_with_invalid_product_uuid(
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_delete_empty_inventory(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+    warehouse = await create_warehouse(client)
+
+    await create_inventory(
+        client,
+        warehouse_id=warehouse["id"],
+        product_id=product["id"],
+        quantity=0,
+    )
+
+    response = await client.delete(
+        f"/warehouses/{warehouse['id']}/inventory/{product['id']}"
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+    list_response = await client.get(
+        f"/warehouses/{warehouse['id']}/inventory"
+    )
+
+    assert list_response.status_code == 200
+    assert list_response.json() == []
+
+
+@pytest.mark.asyncio
+async def test_delete_non_empty_inventory(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+    warehouse = await create_warehouse(client)
+
+    inventory = await create_inventory(
+        client,
+        warehouse_id=warehouse["id"],
+        product_id=product["id"],
+        quantity=10,
+    )
+
+    response = await client.delete(
+        f"/warehouses/{warehouse['id']}/inventory/{product['id']}"
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        f"Inventory for product id={product['id']} "
+        f"in warehouse id={warehouse['id']} "
+        f"cannot be deleted since it is not empty"
+    )
+
+    list_response = await client.get(
+        f"/warehouses/{warehouse['id']}/inventory"
+    )
+
+    assert list_response.status_code == 200
+
+    data = list_response.json()
+
+    assert len(data) == 1
+    assert data[0]["id"] == inventory["id"]
+    assert data[0]["quantity"] == 10
+
+
+@pytest.mark.asyncio
+async def test_delete_nonexistent_inventory(
+    client: AsyncClient,
+) -> None:
+    warehouse = await create_warehouse(client)
+    product_id = uuid4()
+
+    response = await client.delete(
+        f"/warehouses/{warehouse['id']}/inventory/{product_id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        f"Inventory for product id={product_id} "
+        f"in warehouse id={warehouse['id']} does not exist"
+    )
+
+
+@pytest.mark.asyncio
+async def test_delete_inventory_with_invalid_uuid(
+    client: AsyncClient,
+) -> None:
+    response = await client.delete(
+        f"/warehouses/not-a-uuid/inventory/{uuid4()}"
+    )
+
+    assert response.status_code == 422

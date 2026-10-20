@@ -2,6 +2,11 @@ from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
+from tests.factories import (
+    create_inventory,
+    create_product,
+    create_warehouse,
+)
 
 
 @pytest.mark.asyncio
@@ -333,3 +338,335 @@ async def test_create_product_with_invalid_payload(
     )
 
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_update_product_name(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+
+    response = await client.patch(
+        f"/products/{product['id']}",
+        json={
+            "name": "NVIDIA RTX 5090 Founders Edition",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == product["id"]
+    assert data["name"] == "NVIDIA RTX 5090 Founders Edition"
+    assert data["sku"] == product["sku"]
+
+
+@pytest.mark.asyncio
+async def test_update_product_sku(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+
+    response = await client.patch(
+        f"/products/{product['id']}",
+        json={
+            "sku": "RTX5090-FE",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == product["id"]
+    assert data["name"] == product["name"]
+    assert data["sku"] == "RTX5090-FE"
+
+
+@pytest.mark.asyncio
+async def test_update_product_name_and_sku(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+
+    response = await client.patch(
+        f"/products/{product['id']}",
+        json={
+            "name": "NVIDIA RTX 6090",
+            "sku": "RTX6090",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["id"] == product["id"]
+    assert data["name"] == "NVIDIA RTX 6090"
+    assert data["sku"] == "RTX6090"
+
+
+@pytest.mark.asyncio
+async def test_update_nonexistent_product(
+    client: AsyncClient,
+) -> None:
+    product_id = uuid4()
+
+    response = await client.patch(
+        f"/products/{product_id}",
+        json={
+            "name": "Updated Product",
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        f"Product with id={product_id} does not exist"
+    )
+
+
+@pytest.mark.asyncio
+async def test_update_product_with_duplicate_sku(
+    client: AsyncClient,
+) -> None:
+    first_product = await create_product(
+        client,
+        name="NVIDIA RTX 5090",
+        sku="RTX5090",
+    )
+
+    second_product = await create_product(
+        client,
+        name="NVIDIA RTX 4090",
+        sku="RTX4090",
+    )
+
+    response = await client.patch(
+        f"/products/{second_product['id']}",
+        json={
+            "sku": first_product["sku"],
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "Product with sku='RTX5090' already exists"
+    )
+
+    get_response = await client.get(
+        f"/products/{second_product['id']}"
+    )
+
+    assert get_response.status_code == 200
+    assert get_response.json()["sku"] == "RTX4090"
+
+
+@pytest.mark.asyncio
+async def test_update_product_with_empty_payload(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+
+    response = await client.patch(
+        f"/products/{product['id']}",
+        json={},
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param(
+            {
+                "name": "",
+            },
+            id="empty-name",
+        ),
+        pytest.param(
+            {
+                "name": "   ",
+            },
+            id="whitespace-name",
+        ),
+        pytest.param(
+            {
+                "sku": "",
+            },
+            id="empty-sku",
+        ),
+        pytest.param(
+            {
+                "sku": "   ",
+            },
+            id="whitespace-sku",
+        ),
+        pytest.param(
+            {
+                "unexpected": "value",
+            },
+            id="extra-field",
+        ),
+        pytest.param(
+            {
+                "name": "X" * 256,
+            },
+            id="name-too-long",
+        ),
+        pytest.param(
+            {
+                "sku": "X" * 101,
+            },
+            id="sku-too-long",
+        ),
+    ],
+)
+async def test_update_product_with_invalid_payload(
+    client: AsyncClient,
+    payload: dict[str, str],
+) -> None:
+    product = await create_product(client)
+
+    response = await client.patch(
+        f"/products/{product['id']}",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_delete_product(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+
+    response = await client.delete(
+        f"/products/{product['id']}"
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""
+
+    get_response = await client.get(
+        f"/products/{product['id']}"
+    )
+
+    assert get_response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_nonexistent_product(
+    client: AsyncClient,
+) -> None:
+    product_id = uuid4()
+
+    response = await client.delete(
+        f"/products/{product_id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        f"Product with id={product_id} does not exist"
+    )
+
+
+@pytest.mark.asyncio
+async def test_delete_product_used_in_order(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+
+    order_response = await client.post(
+        "/orders",
+        json={
+            "items": [
+                {
+                    "product_id": product["id"],
+                    "quantity": 2,
+                },
+            ],
+        },
+    )
+
+    assert order_response.status_code == 201
+
+    order = order_response.json()
+
+    response = await client.delete(
+        f"/products/{product['id']}"
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        f"Product with id={product['id']} "
+        f"is used in order with id={order['id']}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_delete_product_with_stock(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+    warehouse = await create_warehouse(client)
+
+    await create_inventory(
+        client,
+        warehouse_id=warehouse["id"],
+        product_id=product["id"],
+        quantity=10,
+    )
+
+    response = await client.delete(
+        f"/products/{product['id']}"
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        f"Product with id={product['id']} "
+        "has stock in inventory"
+    )
+
+    get_response = await client.get(
+        f"/products/{product['id']}"
+    )
+
+    assert get_response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_delete_product_with_empty_inventory(
+    client: AsyncClient,
+) -> None:
+    product = await create_product(client)
+    warehouse = await create_warehouse(client)
+
+    await create_inventory(
+        client,
+        warehouse_id=warehouse["id"],
+        product_id=product["id"],
+        quantity=0,
+    )
+
+    response = await client.delete(
+        f"/products/{product['id']}"
+    )
+
+    assert response.status_code == 204
+
+    product_response = await client.get(
+        f"/products/{product['id']}"
+    )
+
+    assert product_response.status_code == 404
+
+    inventory_response = await client.get(
+        f"/warehouses/{warehouse['id']}/inventory"
+    )
+
+    assert inventory_response.status_code == 200
+    assert inventory_response.json() == []

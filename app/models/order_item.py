@@ -10,6 +10,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.order import Order
+    from app.models.order_allocation import OrderAllocation
 
 
 FK_ORDER_ITEMS_ORDER = "fk_order_items_order"
@@ -86,4 +87,10 @@ class OrderItem(Base):
 
     order: Mapped[Order] = relationship(
         back_populates="items",
+    )
+
+    allocations: Mapped[list[OrderAllocation]] = relationship(
+        back_populates="order_item",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )

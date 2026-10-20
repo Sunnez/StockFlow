@@ -17,6 +17,8 @@ class InventoryRead(BaseModel):
     product_id: UUID
     warehouse_id: UUID
     quantity: int
+    reserved_quantity: int
+    available_quantity: int
 
     model_config = ConfigDict(
         from_attributes=True,
