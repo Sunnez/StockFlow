@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, EmailStr, StringConstraints
 
 from app.domain.organization import OrganizationRole
 
@@ -33,3 +33,23 @@ class OrganizationRead(BaseModel):
 
 class OrganizationWithRoleRead(OrganizationRead):
     role: OrganizationRole
+
+
+class OrganizationUpdate(BaseModel):
+    name: OrganizationName
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class OrganizationMemberRead(BaseModel):
+    user_id: UUID
+    email: EmailStr
+    role: OrganizationRole
+    joined_at: datetime
+
+
+class OrganizationMemberCreate(BaseModel):
+    email: EmailStr
+    role: OrganizationRole
+
+    model_config = ConfigDict(extra="forbid")

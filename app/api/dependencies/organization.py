@@ -10,7 +10,7 @@ from app.api.dependencies.auth import (
     AuthContext,
     get_auth_context,
 )
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ForbiddenError, NotFoundError
 from app.db.session import get_db
 from app.domain.organization import OrganizationRole
 from app.models.organization import Organization
@@ -74,3 +74,28 @@ async def get_organization_context(
         organization=organization,
         role=role,
     )
+
+
+def require_organization_roles(
+    *allowed_roles: OrganizationRole,
+):
+    if not allowed_roles:
+        raise ValueError("At least one role is required")
+
+    allowed = frozenset(allowed_roles)
+
+    async def check_roles(
+        org_context: Annotated[
+            OrganizationContext,
+            Depends(get_organization_context),
+        ],
+    ) -> OrganizationContext:
+
+        if org_context.role not in allowed:
+            raise ForbiddenError(
+                "Insufficient organization permissions"
+            )
+
+        return org_context
+
+    return check_roles
