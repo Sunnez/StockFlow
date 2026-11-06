@@ -14,3 +14,5 @@ httpx
 email-validator
 pwdlib[argon2]
 PyJWT
+
+python-slugify

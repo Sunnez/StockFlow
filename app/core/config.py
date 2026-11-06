@@ -7,6 +7,9 @@ class Settings(BaseSettings):
     db_echo: bool = False
     test_database_url: str | None = None
 
+    auth_allowed_origins: list[str]
+    csrf_secret_key: SecretStr
+
     jwt_secret_key: SecretStr
     jwt_access_expire_minutes: int = Field(
         default=15,

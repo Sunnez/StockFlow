@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, Depends, Response, status
+from fastapi import APIRouter, Cookie, Depends, Header, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.csrf import generate_csrf_token
 from app.auth.jwt import create_access_token
 from app.core.config import settings
 from app.db.session import get_db
@@ -12,6 +13,7 @@ from app.services.auth import service as auth_service
 from app.services.auth.exceptions import InvalidRefreshTokenError
 from app.services.auth.sessions import (
     create_auth_session,
+    revoke_auth_session,
     rotate_refresh_token,
 )
 
@@ -58,6 +60,8 @@ async def login_user(
         user_id=user.id,
     )
 
+    csrf_token = generate_csrf_token(auth_session.id)
+
     access_token = create_access_token(
         user_id=user.id,
         session_id=auth_session.id,
@@ -83,6 +87,16 @@ async def login_user(
         path="/auth",
     )
 
+    response.set_cookie(
+        key="csrf_token",
+        value=csrf_token,
+        httponly=False,
+        secure=settings.auth_cookie_secure,
+        samesite="lax",
+        max_age=settings.auth_session_expire_days * 24 * 60 * 60,
+        path="/",
+    )
+
     response.headers["Cache-Control"] = "no-store"
 
     return user
@@ -95,6 +109,14 @@ async def login_user(
 async def refresh_access_token(
     response: Response,
     refresh_token: Annotated[str | None, Cookie()] = None,
+    csrf_cookie: Annotated[
+        str | None,
+        Cookie(alias="csrf_token"),
+    ] = None,
+    csrf_header: Annotated[
+        str | None,
+        Header(alias="X-CSRF-Token"),
+    ] = None,
     db: AsyncSession = Depends(get_db),
 ):
     if refresh_token is None:
@@ -103,6 +125,8 @@ async def refresh_access_token(
     rotated = await rotate_refresh_token(
         db,
         raw_token=refresh_token,
+        csrf_cookie=csrf_cookie,
+        csrf_header=csrf_header,
     )
 
     access_token = create_access_token(
@@ -138,6 +162,58 @@ async def refresh_access_token(
         samesite="lax",
         max_age=remaining_seconds,
         path="/auth",
+    )
+
+    response.headers["Cache-Control"] = "no-store"
+
+
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def logout_user(
+    response: Response,
+    refresh_token: Annotated[str | None, Cookie()] = None,
+    csrf_cookie: Annotated[
+        str | None,
+        Cookie(alias="csrf_token"),
+    ] = None,
+    csrf_header: Annotated[
+        str | None,
+        Header(alias="X-CSRF-Token"),
+    ] = None,
+    db: AsyncSession = Depends(get_db),
+):
+    if refresh_token is not None:
+        await revoke_auth_session(
+            db,
+            raw_token=refresh_token,
+            csrf_cookie=csrf_cookie,
+            csrf_header=csrf_header,
+        )
+
+    response.delete_cookie(
+        key="access_token",
+        path="/",
+        secure=settings.auth_cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
+
+    response.delete_cookie(
+        key="refresh_token",
+        path="/auth",
+        secure=settings.auth_cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
+
+    response.delete_cookie(
+        key="csrf_token",
+        path="/",
+        secure=settings.auth_cookie_secure,
+        httponly=False,
+        samesite="lax",
     )
 
     response.headers["Cache-Control"] = "no-store"

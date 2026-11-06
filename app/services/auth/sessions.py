@@ -6,12 +6,14 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.csrf import verify_csrf_token
 from app.auth.refresh_tokens import (
     generate_refresh_token,
     hash_refresh_secret,
     parse_refresh_token,
 )
 from app.core.config import settings
+from app.core.exceptions import ForbiddenError
 from app.models.auth_session import AuthSession
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
@@ -62,6 +64,8 @@ async def rotate_refresh_token(
     db: AsyncSession,
     *,
     raw_token: str,
+    csrf_cookie: str | None,
+    csrf_header: str | None,
 ) -> RotatedCredentials:
 
     try:
@@ -106,6 +110,14 @@ async def rotate_refresh_token(
             stored_token.token_hash,
         ):
             raise InvalidRefreshTokenError()
+
+        if not verify_csrf_token(
+            auth_session.id,
+            csrf_cookie,
+            csrf_header,
+        ):
+            raise ForbiddenError("Invalid CSRF token")
+        
 
         now = datetime.now(timezone.utc)
 
@@ -157,3 +169,61 @@ async def rotate_refresh_token(
         raise InvalidRefreshTokenError()
 
     return result
+
+
+async def revoke_auth_session(
+    db: AsyncSession,
+    *,
+    raw_token: str,
+    csrf_cookie: str | None,
+    csrf_header: str | None,
+) -> None:
+
+    try:
+        token_id, secret = parse_refresh_token(raw_token)
+    except (ValueError, TypeError):
+        return
+
+    provided_hash = hash_refresh_secret(secret)
+
+    async with db.begin():
+        session_id = await db.scalar(
+            select(RefreshToken.session_id)
+            .where(RefreshToken.id == token_id)
+        )
+
+        if session_id is None:
+            return
+
+        auth_session = await db.scalar(
+            select(AuthSession)
+            .where(AuthSession.id == session_id)
+            .with_for_update()
+        )
+
+        if auth_session is None:
+            return
+
+        stored_token = await db.get(
+            RefreshToken,
+            token_id,
+        )
+
+        if (
+            stored_token is None
+            or not hmac.compare_digest(
+                provided_hash,
+                stored_token.token_hash,
+            )
+        ):
+            return
+
+        if not verify_csrf_token(
+            auth_session.id,
+            csrf_cookie,
+            csrf_header,
+        ):
+            raise ForbiddenError("Invalid CSRF token")
+
+        if auth_session.revoked_at is None:
+            auth_session.revoked_at = datetime.now(timezone.utc)

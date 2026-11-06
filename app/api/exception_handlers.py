@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 from app.core.exceptions import (
     ApplicationValidationError,
     ConflictError,
+    ForbiddenError,
     NotFoundError,
     UnauthorizedError,
 )
@@ -81,4 +82,19 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(
         UnauthorizedError,
         unauthorized_handler,
+    )
+
+    app.add_exception_handler(
+    ForbiddenError,
+    forbidden_handler,
+    )
+
+
+async def forbidden_handler(
+    _request: Request,
+    exc: ForbiddenError,
+) -> JSONResponse:
+    return _error_response(
+        status_code=status.HTTP_403_FORBIDDEN,
+        exc=exc,
     )

@@ -1,21 +1,30 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Annotated
+from uuid import UUID
 
 import jwt
-from fastapi import Cookie, Depends
+from fastapi import Cookie, Depends, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.csrf import verify_csrf_token
 from app.auth.jwt import decode_access_token
-from app.core.exceptions import UnauthorizedError
+from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.db.session import get_db
 from app.models.auth_session import AuthSession
 from app.models.user import User
 
 
-async def get_current_user(
+@dataclass(frozen=True)
+class AuthContext:
+    user: User
+    session_id: UUID
+
+
+async def get_auth_context(
     db: Annotated[AsyncSession, Depends(get_db)],
     access_token: Annotated[str | None, Cookie()] = None,
-) -> User:
+) -> AuthContext:
     if access_token is None:
         raise UnauthorizedError("Not authenticated")
 
@@ -40,4 +49,32 @@ async def get_current_user(
         if user is None or not user.is_active:
             raise UnauthorizedError("Not authenticated")
 
-    return user
+    return AuthContext(
+        user=user,
+        session_id=session_id,
+    )
+
+
+async def get_current_user(
+    auth: Annotated[AuthContext, Depends(get_auth_context)],
+) -> User:
+    return auth.user
+
+
+async def require_csrf(
+    auth: Annotated[AuthContext, Depends(get_auth_context)],
+    csrf_cookie: Annotated[
+        str | None,
+        Cookie(alias="csrf_token"),
+    ] = None,
+    csrf_header: Annotated[
+        str | None,
+        Header(alias="X-CSRF-Token"),
+    ] = None,
+) -> None:
+    if not verify_csrf_token(
+        auth.session_id,
+        csrf_cookie,
+        csrf_header,
+    ):
+        raise ForbiddenError("Invalid CSRF token")
