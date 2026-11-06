@@ -2,19 +2,20 @@ import asyncio
 import sys
 from collections.abc import AsyncIterator
 
-import app.models  # noqa: F401
 import pytest
 import pytest_asyncio
-from app.core.config import settings
-from app.db.base import Base
-from app.db.session import get_db
-from app.main import app as fastapi_app
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+
+import app.models  # noqa: F401
+from app.core.config import settings
+from app.db.base import Base
+from app.db.session import get_db
+from app.main import app as fastapi_app
 
 
 def pytest_asyncio_loop_factories(

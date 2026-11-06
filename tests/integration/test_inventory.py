@@ -3,6 +3,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
+
 from tests.factories import (
     create_inventory,
     create_product,

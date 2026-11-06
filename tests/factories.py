@@ -59,3 +59,22 @@ async def create_inventory(
     assert response.status_code == 201, response.text
 
     return response.json()
+
+
+async def create_user(
+    client: AsyncClient,
+    *,
+    email: str = "alex@example.com",
+    password: str = "SecurePassword123!",
+) -> dict[str, Any]:
+    response = await client.post(
+        "/auth/register",
+        json={
+            "email": email,
+            "password": password,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+
+    return response.json()

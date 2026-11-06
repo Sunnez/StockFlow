@@ -1,9 +1,11 @@
 from fastapi import FastAPI
 
 from app.api.exception_handlers import register_exception_handlers
+from app.api.routes.auth import router as auth_router
 from app.api.routes.inventory import router as inventory_router
 from app.api.routes.orders import router as orders_router
 from app.api.routes.products import router as products_router
+from app.api.routes.users import router as users_router
 from app.api.routes.warehouses import router as warehouses_router
 
 app = FastAPI(
@@ -17,6 +19,8 @@ app.include_router(products_router)
 app.include_router(warehouses_router)
 app.include_router(inventory_router)
 app.include_router(orders_router)
+app.include_router(auth_router)
+app.include_router(users_router)
 
 
 @app.get("/health")
