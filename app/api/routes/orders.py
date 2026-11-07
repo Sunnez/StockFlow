@@ -4,12 +4,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies.organization import BusinessReadContext, BusinessWriteContext
 from app.db.session import get_db
 from app.schemas.order import OrderCreate, OrderRead, OrderUpdate
 from app.services.order import service as order_service
 
 router = APIRouter(
-    prefix="/orders",
+    prefix="/organizations/{organization_id}/orders",
     tags=["Orders"],
 )
 
@@ -21,10 +22,13 @@ router = APIRouter(
 )
 async def create_order(
     data: OrderCreate,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await order_service.create_order(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         items=data.items,
     )
 
@@ -34,12 +38,14 @@ async def create_order(
     response_model=list[OrderRead],
 )
 async def list_orders(
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessReadContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
     return await order_service.list_orders(
         db,
+        organization_id=org_context.organization.id,
         limit=limit,
         offset=offset,
     )
@@ -51,10 +57,12 @@ async def list_orders(
 )
 async def get_order(
     order_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessReadContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await order_service.get_order(
         db,
+        organization_id=org_context.organization.id,
         order_id=order_id,
     )
 
@@ -66,10 +74,13 @@ async def get_order(
 async def update_order(
     order_id: UUID,
     data: OrderUpdate,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await order_service.update_order(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         order_id=order_id,
         new_items=data.items,
     )
@@ -81,9 +92,15 @@ async def update_order(
 )
 async def delete_order(
     order_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    await order_service.delete_order(db, order_id=order_id)
+    await order_service.delete_order(
+        db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
+        order_id=order_id,
+    )
 
 
 @router.post(
@@ -92,10 +109,13 @@ async def delete_order(
 )
 async def allocate_order(
     order_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await order_service.allocate_order(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         order_id=order_id,
     )
 
@@ -106,10 +126,13 @@ async def allocate_order(
 )
 async def fulfill_order(
     order_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await order_service.fulfill_order(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         order_id=order_id,
     )
 
@@ -120,9 +143,12 @@ async def fulfill_order(
 )
 async def cancel_order(
     order_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await order_service.cancel_order(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         order_id=order_id,
     )

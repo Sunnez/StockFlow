@@ -13,6 +13,7 @@ class InventoryCreate(BaseModel):
 
 
 class InventoryRead(BaseModel):
+    organization_id: UUID
     id: UUID
     product_id: UUID
     warehouse_id: UUID

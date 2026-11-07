@@ -16,6 +16,7 @@ class OrderCreate(BaseModel):
 
 
 class OrderRead(BaseModel):
+    organization_id: UUID
     id: UUID
     status: OrderStatus
     created_at: datetime

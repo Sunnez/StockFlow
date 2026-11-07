@@ -20,6 +20,7 @@ class WarehouseCreate(BaseModel):
 
 
 class WarehouseRead(BaseModel):
+    organization_id: UUID
     id: UUID
     name: str
     location: str

@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, with_loader_criteria
 
 from app.domain.order import OrderStatus
 from app.models.inventory import Inventory
@@ -26,11 +26,14 @@ from app.services.order.exceptions import (
     OrderNotFoundError,
     ProductsNotFoundInOrderError,
 )
+from app.services.organization.authorization import lock_actor_membership
 
 
 async def create_order(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     items: list[OrderItemCreate],
 ) -> Order:
     if not items:
@@ -44,9 +47,18 @@ async def create_order(
         seen_product_ids.add(item.product_id)
 
     async with db.begin():
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+        )
         stmt = (
             select(Product.id)
-            .where(Product.id.in_(seen_product_ids))
+            .where(
+                Product.organization_id == organization_id,
+                Product.id.in_(seen_product_ids),
+            )
+            .order_by(Product.id)
             .with_for_update(read=True, key_share=True)
         )
         result = await db.execute(stmt)
@@ -59,6 +71,7 @@ async def create_order(
 
         order_items = [
             OrderItem(
+                organization_id=organization_id,
                 product_id=item.product_id,
                 quantity=item.quantity,
                 position=position,
@@ -68,6 +81,7 @@ async def create_order(
         ]
 
         order = Order(
+            organization_id=organization_id,
             items=order_items,
         )
 
@@ -80,12 +94,22 @@ async def create_order(
 async def list_orders(
     db: AsyncSession,
     *,
+    organization_id: UUID,
     limit: int,
     offset: int,
 ) -> Sequence[Order]:
     result = await db.execute(
         select(Order)
-        .options(selectinload(Order.items).selectinload(OrderItem.allocations))
+        .where(Order.organization_id == organization_id)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.allocations),
+            with_loader_criteria(
+                OrderItem, OrderItem.organization_id == organization_id
+            ),
+            with_loader_criteria(
+                OrderAllocation, OrderAllocation.organization_id == organization_id
+            ),
+        )
         .order_by(Order.created_at.desc(), Order.id.desc())
         .limit(limit)
         .offset(offset)
@@ -97,12 +121,21 @@ async def list_orders(
 async def get_order(
     db: AsyncSession,
     *,
+    organization_id: UUID,
     order_id: UUID,
 ) -> Order:
     stmt = (
         select(Order)
-        .where(Order.id == order_id)
-        .options(selectinload(Order.items).selectinload(OrderItem.allocations))
+        .where(Order.organization_id == organization_id, Order.id == order_id)
+        .options(
+            selectinload(Order.items).selectinload(OrderItem.allocations),
+            with_loader_criteria(
+                OrderItem, OrderItem.organization_id == organization_id
+            ),
+            with_loader_criteria(
+                OrderAllocation, OrderAllocation.organization_id == organization_id
+            ),
+        )
     )
     result = await db.execute(stmt)
 
@@ -117,6 +150,8 @@ async def get_order(
 async def update_order(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     order_id: UUID,
     new_items: list[OrderItemCreate],
 ) -> Order:
@@ -130,10 +165,23 @@ async def update_order(
 
         seen_product_ids.add(item.product_id)
     async with db.begin():
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+        )
         stmt = (
             select(Order)
-            .where(Order.id == order_id)
-            .options(selectinload(Order.items).selectinload(OrderItem.allocations))
+            .where(Order.organization_id == organization_id, Order.id == order_id)
+            .options(
+                selectinload(Order.items).selectinload(OrderItem.allocations),
+                with_loader_criteria(
+                    OrderItem, OrderItem.organization_id == organization_id
+                ),
+                with_loader_criteria(
+                    OrderAllocation, OrderAllocation.organization_id == organization_id
+                ),
+            )
             .with_for_update()
         )
 
@@ -149,7 +197,11 @@ async def update_order(
 
         stmt = (
             select(Product.id)
-            .where(Product.id.in_(seen_product_ids))
+            .where(
+                Product.organization_id == organization_id,
+                Product.id.in_(seen_product_ids),
+            )
+            .order_by(Product.id)
             .with_for_update(read=True, key_share=True)
         )
 
@@ -163,6 +215,7 @@ async def update_order(
 
         order_items = [
             OrderItem(
+                organization_id=organization_id,
                 product_id=item.product_id,
                 quantity=item.quantity,
                 position=position,
@@ -183,10 +236,21 @@ async def update_order(
 async def delete_order(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     order_id: UUID,
 ) -> None:
     async with db.begin():
-        stmt = select(Order).where(Order.id == order_id).with_for_update()
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+        )
+        stmt = (
+            select(Order)
+            .where(Order.organization_id == organization_id, Order.id == order_id)
+            .with_for_update()
+        )
 
         result = await db.execute(stmt)
 
@@ -206,13 +270,28 @@ async def delete_order(
 async def allocate_order(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     order_id: UUID,
 ) -> Order:
     async with db.begin():
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+        )
         stmt = (
             select(Order)
-            .where(Order.id == order_id)
-            .options(selectinload(Order.items).selectinload(OrderItem.allocations))
+            .where(Order.organization_id == organization_id, Order.id == order_id)
+            .options(
+                selectinload(Order.items).selectinload(OrderItem.allocations),
+                with_loader_criteria(
+                    OrderItem, OrderItem.organization_id == organization_id
+                ),
+                with_loader_criteria(
+                    OrderAllocation, OrderAllocation.organization_id == organization_id
+                ),
+            )
             .with_for_update()
         )
 
@@ -229,7 +308,10 @@ async def allocate_order(
 
         stmt = (
             select(Inventory)
-            .where(Inventory.product_id.in_(product_ids))
+            .where(
+                Inventory.organization_id == organization_id,
+                Inventory.product_id.in_(product_ids),
+            )
             .order_by(
                 Inventory.product_id,
                 Inventory.warehouse_id,
@@ -279,7 +361,10 @@ async def allocate_order(
                 inventory.reserved_quantity += allocated_quantity
 
                 allocation = OrderAllocation(
-                    inventory_id=inventory.id, quantity=allocated_quantity
+                    organization_id=organization_id,
+                    product_id=item.product_id,
+                    inventory_id=inventory.id,
+                    quantity=allocated_quantity,
                 )
 
                 item.allocations.append(allocation)
@@ -296,13 +381,28 @@ async def allocate_order(
 async def fulfill_order(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     order_id: UUID,
 ) -> Order:
     async with db.begin():
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+        )
         stmt = (
             select(Order)
-            .where(Order.id == order_id)
-            .options(selectinload(Order.items).selectinload(OrderItem.allocations))
+            .where(Order.organization_id == organization_id, Order.id == order_id)
+            .options(
+                selectinload(Order.items).selectinload(OrderItem.allocations),
+                with_loader_criteria(
+                    OrderItem, OrderItem.organization_id == organization_id
+                ),
+                with_loader_criteria(
+                    OrderAllocation, OrderAllocation.organization_id == organization_id
+                ),
+            )
             .with_for_update()
         )
 
@@ -323,7 +423,10 @@ async def fulfill_order(
 
         stmt = (
             select(Inventory)
-            .where(Inventory.id.in_(inventory_ids))
+            .where(
+                Inventory.organization_id == organization_id,
+                Inventory.id.in_(inventory_ids),
+            )
             .order_by(
                 Inventory.product_id,
                 Inventory.warehouse_id,
@@ -365,13 +468,28 @@ async def fulfill_order(
 async def cancel_order(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     order_id: UUID,
 ) -> Order:
     async with db.begin():
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+        )
         stmt = (
             select(Order)
-            .where(Order.id == order_id)
-            .options(selectinload(Order.items).selectinload(OrderItem.allocations))
+            .where(Order.organization_id == organization_id, Order.id == order_id)
+            .options(
+                selectinload(Order.items).selectinload(OrderItem.allocations),
+                with_loader_criteria(
+                    OrderItem, OrderItem.organization_id == organization_id
+                ),
+                with_loader_criteria(
+                    OrderAllocation, OrderAllocation.organization_id == organization_id
+                ),
+            )
             .with_for_update()
         )
 
@@ -399,7 +517,10 @@ async def cancel_order(
 
             stmt = (
                 select(Inventory)
-                .where(Inventory.id.in_(inventory_ids))
+                .where(
+                    Inventory.organization_id == organization_id,
+                    Inventory.id.in_(inventory_ids),
+                )
                 .order_by(
                     Inventory.product_id,
                     Inventory.warehouse_id,

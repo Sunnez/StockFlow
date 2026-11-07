@@ -2,6 +2,7 @@ from uuid import UUID, uuid4
 
 import pytest
 from httpx import AsyncClient
+
 from tests.factories import (
     create_inventory,
     create_product,
@@ -11,10 +12,10 @@ from tests.factories import (
 
 @pytest.mark.asyncio
 async def test_create_warehouse(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    response = await client.post(
-        "/warehouses",
+    response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Riga Warehouse",
             "location": "Riga, Latvia",
@@ -32,10 +33,10 @@ async def test_create_warehouse(
 
 @pytest.mark.asyncio
 async def test_create_warehouse_with_duplicate_name(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    create_response = await client.post(
-        "/warehouses",
+    create_response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Riga Warehouse",
             "location": "Riga, Latvia",
@@ -44,8 +45,8 @@ async def test_create_warehouse_with_duplicate_name(
 
     assert create_response.status_code == 201
 
-    duplicate_response = await client.post(
-        "/warehouses",
+    duplicate_response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Riga Warehouse",
             "location": "Tallinn, Estonia",
@@ -60,10 +61,10 @@ async def test_create_warehouse_with_duplicate_name(
 
 @pytest.mark.asyncio
 async def test_get_warehouse_by_id(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    create_response = await client.post(
-        "/warehouses",
+    create_response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Riga Warehouse",
             "location": "Riga, Latvia",
@@ -74,7 +75,7 @@ async def test_get_warehouse_by_id(
 
     warehouse_id = create_response.json()["id"]
 
-    get_response = await client.get(f"/warehouses/{warehouse_id}")
+    get_response = await tenant_client.get(f"warehouses/{warehouse_id}")
 
     assert get_response.status_code == 200
 
@@ -87,11 +88,11 @@ async def test_get_warehouse_by_id(
 
 @pytest.mark.asyncio
 async def test_get_warehouse_by_nonexistent_id(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
     warehouse_id = uuid4()
 
-    response = await client.get(f"/warehouses/{warehouse_id}")
+    response = await tenant_client.get(f"warehouses/{warehouse_id}")
 
     assert response.status_code == 404
     assert response.json()["detail"] == (
@@ -101,21 +102,21 @@ async def test_get_warehouse_by_nonexistent_id(
 
 @pytest.mark.asyncio
 async def test_get_warehouse_with_invalid_uuid(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    response = await client.get("/warehouses/not-a-uuid")
+    response = await tenant_client.get("warehouses/not-a-uuid")
 
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_get_warehouses_list(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
     warehouses = []
 
-    create_response = await client.post(
-        "/warehouses",
+    create_response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Riga Warehouse",
             "location": "Riga, Latvia",
@@ -125,8 +126,8 @@ async def test_get_warehouses_list(
     assert create_response.status_code == 201
     warehouses.append(create_response.json())
 
-    create_response = await client.post(
-        "/warehouses",
+    create_response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Tallinn Warehouse",
             "location": "Tallinn, Estonia",
@@ -136,8 +137,8 @@ async def test_get_warehouses_list(
     assert create_response.status_code == 201
     warehouses.append(create_response.json())
 
-    create_response = await client.post(
-        "/warehouses",
+    create_response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Vilnius Warehouse",
             "location": "Vilnius, Lithuania",
@@ -147,7 +148,7 @@ async def test_get_warehouses_list(
     assert create_response.status_code == 201
     warehouses.append(create_response.json())
 
-    response = await client.get("/warehouses")
+    response = await tenant_client.get("warehouses")
 
     assert response.status_code == 200
 
@@ -164,12 +165,12 @@ async def test_get_warehouses_list(
 
 @pytest.mark.asyncio
 async def test_get_warehouses_pagination(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
     warehouses = []
 
-    create_response = await client.post(
-        "/warehouses",
+    create_response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Riga Warehouse",
             "location": "Riga, Latvia",
@@ -179,8 +180,8 @@ async def test_get_warehouses_pagination(
     assert create_response.status_code == 201
     warehouses.append(create_response.json())
 
-    create_response = await client.post(
-        "/warehouses",
+    create_response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Tallinn Warehouse",
             "location": "Tallinn, Estonia",
@@ -190,8 +191,8 @@ async def test_get_warehouses_pagination(
     assert create_response.status_code == 201
     warehouses.append(create_response.json())
 
-    create_response = await client.post(
-        "/warehouses",
+    create_response = await tenant_client.post(
+        "warehouses",
         json={
             "name": "Vilnius Warehouse",
             "location": "Vilnius, Lithuania",
@@ -201,8 +202,8 @@ async def test_get_warehouses_pagination(
     assert create_response.status_code == 201
     warehouses.append(create_response.json())
 
-    response = await client.get(
-        "/warehouses",
+    response = await tenant_client.get(
+        "warehouses",
         params={
             "limit": 2,
             "offset": 1,
@@ -240,11 +241,11 @@ async def test_get_warehouses_pagination(
     ],
 )
 async def test_get_warehouses_invalid_pagination(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
     params: dict[str, int],
 ) -> None:
-    response = await client.get(
-        "/warehouses",
+    response = await tenant_client.get(
+        "warehouses",
         params=params,
     )
 
@@ -300,11 +301,11 @@ async def test_get_warehouses_invalid_pagination(
     ],
 )
 async def test_create_warehouse_with_invalid_payload(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
     payload: dict[str, str],
 ) -> None:
-    response = await client.post(
-        "/warehouses",
+    response = await tenant_client.post(
+        "warehouses",
         json=payload,
     )
 
@@ -313,12 +314,12 @@ async def test_create_warehouse_with_invalid_payload(
 
 @pytest.mark.asyncio
 async def test_update_warehouse_name(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
 
-    response = await client.patch(
-        f"/warehouses/{warehouse['id']}",
+    response = await tenant_client.patch(
+        f"warehouses/{warehouse['id']}",
         json={
             "name": "New Riga Warehouse",
         },
@@ -335,12 +336,12 @@ async def test_update_warehouse_name(
 
 @pytest.mark.asyncio
 async def test_update_warehouse_location(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
 
-    response = await client.patch(
-        f"/warehouses/{warehouse['id']}",
+    response = await tenant_client.patch(
+        f"warehouses/{warehouse['id']}",
         json={
             "location": "Jurmala, Latvia",
         },
@@ -356,12 +357,12 @@ async def test_update_warehouse_location(
 
 @pytest.mark.asyncio
 async def test_update_warehouse_name_and_location(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
 
-    response = await client.patch(
-        f"/warehouses/{warehouse['id']}",
+    response = await tenant_client.patch(
+        f"warehouses/{warehouse['id']}",
         json={
             "name": "Tallinn Warehouse",
             "location": "Tallinn, Estonia",
@@ -378,12 +379,12 @@ async def test_update_warehouse_name_and_location(
 
 @pytest.mark.asyncio
 async def test_update_nonexistent_warehouse(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
     warehouse_id = uuid4()
 
-    response = await client.patch(
-        f"/warehouses/{warehouse_id}",
+    response = await tenant_client.patch(
+        f"warehouses/{warehouse_id}",
         json={
             "name": "Updated Warehouse",
         },
@@ -397,22 +398,22 @@ async def test_update_nonexistent_warehouse(
 
 @pytest.mark.asyncio
 async def test_update_warehouse_with_duplicate_name(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
     first_warehouse = await create_warehouse(
-        client,
+        tenant_client,
         name="Riga Warehouse",
         location="Riga, Latvia",
     )
 
     second_warehouse = await create_warehouse(
-        client,
+        tenant_client,
         name="Tallinn Warehouse",
         location="Tallinn, Estonia",
     )
 
-    response = await client.patch(
-        f"/warehouses/{second_warehouse['id']}",
+    response = await tenant_client.patch(
+        f"warehouses/{second_warehouse['id']}",
         json={
             "name": first_warehouse["name"],
         },
@@ -423,7 +424,7 @@ async def test_update_warehouse_with_duplicate_name(
         "Warehouse with name='Riga Warehouse' already exists"
     )
 
-    get_response = await client.get(f"/warehouses/{second_warehouse['id']}")
+    get_response = await tenant_client.get(f"warehouses/{second_warehouse['id']}")
 
     assert get_response.status_code == 200
     assert get_response.json()["name"] == "Tallinn Warehouse"
@@ -431,12 +432,12 @@ async def test_update_warehouse_with_duplicate_name(
 
 @pytest.mark.asyncio
 async def test_update_warehouse_with_empty_payload(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
 
-    response = await client.patch(
-        f"/warehouses/{warehouse['id']}",
+    response = await tenant_client.patch(
+        f"warehouses/{warehouse['id']}",
         json={},
     )
 
@@ -445,46 +446,46 @@ async def test_update_warehouse_with_empty_payload(
 
 @pytest.mark.asyncio
 async def test_delete_warehouse(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
 
-    response = await client.delete(f"/warehouses/{warehouse['id']}")
+    response = await tenant_client.delete(f"warehouses/{warehouse['id']}")
 
     assert response.status_code == 204
     assert response.content == b""
 
-    get_response = await client.get(f"/warehouses/{warehouse['id']}")
+    get_response = await tenant_client.get(f"warehouses/{warehouse['id']}")
 
     assert get_response.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_delete_nonexistent_warehouse(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
     warehouse_id = uuid4()
 
-    response = await client.delete(f"/warehouses/{warehouse_id}")
+    response = await tenant_client.delete(f"warehouses/{warehouse_id}")
 
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_delete_warehouse_with_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=0,
     )
 
-    response = await client.delete(f"/warehouses/{warehouse['id']}")
+    response = await tenant_client.delete(f"warehouses/{warehouse['id']}")
 
     assert response.status_code == 409
     assert response.json()["detail"] == (
@@ -492,6 +493,6 @@ async def test_delete_warehouse_with_inventory(
         f"because it has inventory entries"
     )
 
-    get_response = await client.get(f"/warehouses/{warehouse['id']}")
+    get_response = await tenant_client.get(f"warehouses/{warehouse['id']}")
 
     assert get_response.status_code == 200

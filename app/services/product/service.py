@@ -10,28 +10,37 @@ from app.db.errors import get_constraint_name
 from app.models.inventory import Inventory
 from app.models.order_item import OrderItem
 from app.models.product import UQ_PRODUCTS_SKU, Product
+from app.services.organization.authorization import lock_actor_membership
 from app.services.product.exceptions import (
+    ProductHasStockError,
     ProductNotFoundError,
     ProductSkuAlreadyExistsError,
     ProductUpdateError,
     ProductUsedInOrderError,
-    ProductHasStockError,
 )
 
 
 async def create_product(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     name: str,
     sku: str,
 ) -> Product:
     product = Product(
+        organization_id=organization_id,
         name=name,
         sku=sku,
     )
 
     try:
         async with db.begin():
+            await lock_actor_membership(
+                db,
+                organization_id=organization_id,
+                actor_id=actor_id,
+            )
             db.add(product)
             await db.flush()
 
@@ -50,9 +59,14 @@ async def create_product(
 async def get_product(
     db: AsyncSession,
     *,
+    organization_id: UUID,
     product_id: UUID,
 ) -> Product:
-    product = await db.get(Product, product_id)
+    product = await db.scalar(
+        select(Product).where(
+            Product.organization_id == organization_id, Product.id == product_id
+        )
+    )
 
     if product is None:
         raise ProductNotFoundError(product_id)
@@ -63,11 +77,16 @@ async def get_product(
 async def list_products(
     db: AsyncSession,
     *,
+    organization_id: UUID,
     limit: int,
     offset: int,
 ) -> Sequence[Product]:
     result = await db.execute(
-        select(Product).order_by(Product.id).limit(limit).offset(offset)
+        select(Product)
+        .where(Product.organization_id == organization_id)
+        .order_by(Product.id)
+        .limit(limit)
+        .offset(offset)
     )
 
     return result.scalars().all()
@@ -76,6 +95,8 @@ async def list_products(
 async def update_product(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     product_id: UUID,
     name: str | None,
     sku: str | None,
@@ -84,7 +105,18 @@ async def update_product(
         raise ProductUpdateError(product_id)
     try:
         async with db.begin():
-            stmt = select(Product).where(Product.id == product_id).with_for_update()
+            await lock_actor_membership(
+                db,
+                organization_id=organization_id,
+                actor_id=actor_id,
+            )
+            stmt = (
+                select(Product)
+                .where(
+                    Product.organization_id == organization_id, Product.id == product_id
+                )
+                .with_for_update()
+            )
 
             result = await db.execute(stmt)
 
@@ -112,10 +144,21 @@ async def update_product(
 async def delete_product(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     product_id: UUID,
 ) -> None:
     async with db.begin():
-        stmt = select(Product).where(Product.id == product_id).with_for_update()
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+        )
+        stmt = (
+            select(Product)
+            .where(Product.organization_id == organization_id, Product.id == product_id)
+            .with_for_update()
+        )
 
         result = await db.execute(stmt)
 
@@ -126,7 +169,10 @@ async def delete_product(
 
         stmt = (
             select(OrderItem.order_id)
-            .where(OrderItem.product_id == product_id)
+            .where(
+                OrderItem.organization_id == organization_id,
+                OrderItem.product_id == product_id,
+            )
             .limit(1)
         )
 
@@ -138,7 +184,11 @@ async def delete_product(
 
         stmt = (
             select(Inventory)
-            .where(Inventory.product_id == product_id)
+            .where(
+                Inventory.organization_id == organization_id,
+                Inventory.product_id == product_id,
+            )
+            .order_by(Inventory.product_id, Inventory.warehouse_id, Inventory.id)
             .with_for_update()
         )
 

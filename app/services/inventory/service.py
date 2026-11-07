@@ -29,6 +29,7 @@ from app.services.inventory.exceptions import (
     InventoryQuantityBelowReservedError,
     InventoryUsedInAllocationError,
 )
+from app.services.organization.authorization import lock_actor_membership
 from app.services.product.exceptions import ProductNotFoundError
 from app.services.warehouse.exceptions import WarehouseNotFoundError
 
@@ -36,6 +37,8 @@ from app.services.warehouse.exceptions import WarehouseNotFoundError
 async def create_inventory(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     warehouse_id: UUID,
     product_id: UUID,
     quantity: int,
@@ -45,23 +48,34 @@ async def create_inventory(
 
     try:
         async with db.begin():
-            warehouse = await db.get(
-                Warehouse,
-                warehouse_id,
+            await lock_actor_membership(
+                db,
+                organization_id=organization_id,
+                actor_id=actor_id,
             )
-
-            if warehouse is None:
-                raise WarehouseNotFoundError(warehouse_id)
-
-            product = await db.get(
-                Product,
-                product_id,
+            product = await db.scalar(
+                select(Product)
+                .where(
+                    Product.organization_id == organization_id, Product.id == product_id
+                )
+                .with_for_update(read=True, key_share=True)
             )
-
             if product is None:
                 raise ProductNotFoundError(product_id)
 
+            warehouse = await db.scalar(
+                select(Warehouse)
+                .where(
+                    Warehouse.organization_id == organization_id,
+                    Warehouse.id == warehouse_id,
+                )
+                .with_for_update(read=True, key_share=True)
+            )
+            if warehouse is None:
+                raise WarehouseNotFoundError(warehouse_id)
+
             inventory = Inventory(
+                organization_id=organization_id,
                 warehouse_id=warehouse_id,
                 product_id=product_id,
                 quantity=quantity,
@@ -104,13 +118,15 @@ async def create_inventory(
 async def list_warehouse_inventory(
     db: AsyncSession,
     *,
+    organization_id: UUID,
     warehouse_id: UUID,
     limit: int,
     offset: int,
 ) -> Sequence[Inventory]:
-    warehouse = await db.get(
-        Warehouse,
-        warehouse_id,
+    warehouse = await db.scalar(
+        select(Warehouse).where(
+            Warehouse.organization_id == organization_id, Warehouse.id == warehouse_id
+        )
     )
 
     if warehouse is None:
@@ -118,7 +134,10 @@ async def list_warehouse_inventory(
 
     result = await db.execute(
         select(Inventory)
-        .where(Inventory.warehouse_id == warehouse_id)
+        .where(
+            Inventory.organization_id == organization_id,
+            Inventory.warehouse_id == warehouse_id,
+        )
         .order_by(Inventory.id)
         .limit(limit)
         .offset(offset)
@@ -130,6 +149,8 @@ async def list_warehouse_inventory(
 async def update_inventory_quantity(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     warehouse_id: UUID,
     product_id: UUID,
     quantity: int,
@@ -139,9 +160,16 @@ async def update_inventory_quantity(
 
     try:
         async with db.begin():
-            warehouse = await db.get(
-                Warehouse,
-                warehouse_id,
+            await lock_actor_membership(
+                db,
+                organization_id=organization_id,
+                actor_id=actor_id,
+            )
+            warehouse = await db.scalar(
+                select(Warehouse).where(
+                    Warehouse.organization_id == organization_id,
+                    Warehouse.id == warehouse_id,
+                )
             )
 
             if warehouse is None:
@@ -150,6 +178,7 @@ async def update_inventory_quantity(
             result = await db.execute(
                 select(Inventory)
                 .where(
+                    Inventory.organization_id == organization_id,
                     Inventory.warehouse_id == warehouse_id,
                     Inventory.product_id == product_id,
                 )
@@ -193,13 +222,21 @@ async def update_inventory_quantity(
 async def delete_inventory(
     db: AsyncSession,
     *,
+    organization_id: UUID,
+    actor_id: UUID,
     warehouse_id: UUID,
     product_id: UUID,
 ) -> None:
     async with db.begin():
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+        )
         stmt = (
             select(Inventory)
             .where(
+                Inventory.organization_id == organization_id,
                 Inventory.warehouse_id == warehouse_id,
                 Inventory.product_id == product_id,
             )
@@ -217,7 +254,10 @@ async def delete_inventory(
 
         result = await db.execute(
             select(OrderAllocation.id)
-            .where(OrderAllocation.inventory_id == inventory.id)
+            .where(
+                OrderAllocation.organization_id == organization_id,
+                OrderAllocation.inventory_id == inventory.id,
+            )
             .limit(1)
         )
 
