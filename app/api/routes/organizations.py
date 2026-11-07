@@ -121,6 +121,7 @@ async def update_organization(
     return await organization_service.update_organization_name(
         db,
         organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         name=data.name,
     )
 
@@ -146,6 +147,7 @@ async def list_organization_members(
     return await organization_service.list_organization_members(
         db,
         organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         limit=limit,
         offset=offset,
     )

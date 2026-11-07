@@ -20,6 +20,7 @@ class ProductCreate(BaseModel):
 
 
 class ProductRead(BaseModel):
+    organization_id: UUID
     id: UUID
     name: str
     sku: str

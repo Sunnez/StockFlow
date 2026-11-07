@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, Header, Response, status
@@ -30,7 +30,7 @@ router = APIRouter(
 )
 async def register_user(
     data: UserCreate,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await auth_service.register_user(
         db,
@@ -47,7 +47,7 @@ async def register_user(
 async def login_user(
     data: UserLogin,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user = await auth_service.authenticate_user(
         db,
@@ -108,6 +108,7 @@ async def login_user(
 )
 async def refresh_access_token(
     response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
     refresh_token: Annotated[str | None, Cookie()] = None,
     csrf_cookie: Annotated[
         str | None,
@@ -117,7 +118,6 @@ async def refresh_access_token(
         str | None,
         Header(alias="X-CSRF-Token"),
     ] = None,
-    db: AsyncSession = Depends(get_db),
 ):
     if refresh_token is None:
         raise InvalidRefreshTokenError()
@@ -139,7 +139,7 @@ async def refresh_access_token(
         int(
             (
                 rotated.session_expires_at
-                - datetime.now(timezone.utc)
+                - datetime.now(UTC)
             ).total_seconds()
         ),
     )
@@ -173,6 +173,8 @@ async def refresh_access_token(
 )
 async def logout_user(
     response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    access_token: Annotated[str | None, Cookie()] = None,
     refresh_token: Annotated[str | None, Cookie()] = None,
     csrf_cookie: Annotated[
         str | None,
@@ -182,15 +184,14 @@ async def logout_user(
         str | None,
         Header(alias="X-CSRF-Token"),
     ] = None,
-    db: AsyncSession = Depends(get_db),
 ):
-    if refresh_token is not None:
-        await revoke_auth_session(
-            db,
-            raw_token=refresh_token,
-            csrf_cookie=csrf_cookie,
-            csrf_header=csrf_header,
-        )
+    await revoke_auth_session(
+        db,
+        raw_token=refresh_token,
+        access_token=access_token,
+        csrf_cookie=csrf_cookie,
+        csrf_header=csrf_header,
+    )
 
     response.delete_cookie(
         key="access_token",

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.npm-cache/
+coverage/
+*.tsbuildinfo
+.browser-profile/
+artifacts/
+.env
+.env.local
+.env.*.local

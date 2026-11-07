@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies.auth import (
     AuthContext,
     get_auth_context,
+    require_csrf,
 )
 from app.core.exceptions import ForbiddenError, NotFoundError
 from app.db.session import get_db
@@ -36,14 +37,10 @@ async def get_organization_context(
     try:
         parsed_id = UUID(organization_id)
     except ValueError:
-        organization_condition = (
-            Organization.slug == organization_id
-        )
+        organization_condition = Organization.slug == organization_id
     else:
-        organization_condition = (
-            Organization.id == parsed_id
-        )
-    
+        organization_condition = Organization.id == parsed_id
+
     stmt = (
         select(
             Organization,
@@ -51,8 +48,7 @@ async def get_organization_context(
         )
         .join(
             OrganizationMembership,
-            OrganizationMembership.organization_id
-            == Organization.id,
+            OrganizationMembership.organization_id == Organization.id,
         )
         .where(
             organization_condition,
@@ -92,10 +88,36 @@ def require_organization_roles(
     ) -> OrganizationContext:
 
         if org_context.role not in allowed:
-            raise ForbiddenError(
-                "Insufficient organization permissions"
-            )
+            raise ForbiddenError("Insufficient organization permissions")
 
         return org_context
 
     return check_roles
+
+
+BusinessReadContext = Annotated[
+    OrganizationContext,
+    Depends(get_organization_context),
+]
+
+
+async def require_business_write(
+    org_context: Annotated[
+        OrganizationContext,
+        Depends(
+            require_organization_roles(
+                OrganizationRole.OWNER,
+                OrganizationRole.ADMIN,
+                OrganizationRole.MANAGER,
+            )
+        ),
+    ],
+    _csrf: Annotated[None, Depends(require_csrf)],
+) -> OrganizationContext:
+    return org_context
+
+
+BusinessWriteContext = Annotated[
+    OrganizationContext,
+    Depends(require_business_write),
+]

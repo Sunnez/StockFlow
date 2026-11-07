@@ -13,13 +13,13 @@ from tests.factories import (
 
 @pytest.mark.asyncio
 async def test_create_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
-    response = await client.post(
-        f"/warehouses/{warehouse['id']}/inventory",
+    response = await tenant_client.post(
+        f"warehouses/{warehouse['id']}/inventory",
         json={
             "product_id": product["id"],
             "quantity": 25,
@@ -38,13 +38,13 @@ async def test_create_inventory(
 
 @pytest.mark.asyncio
 async def test_create_inventory_with_zero_quantity(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
-    response = await client.post(
-        f"/warehouses/{warehouse['id']}/inventory",
+    response = await tenant_client.post(
+        f"warehouses/{warehouse['id']}/inventory",
         json={
             "product_id": product["id"],
             "quantity": 0,
@@ -57,20 +57,20 @@ async def test_create_inventory_with_zero_quantity(
 
 @pytest.mark.asyncio
 async def test_create_duplicate_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
-    response = await client.post(
-        f"/warehouses/{warehouse['id']}/inventory",
+    response = await tenant_client.post(
+        f"warehouses/{warehouse['id']}/inventory",
         json={
             "product_id": product["id"],
             "quantity": 20,
@@ -86,13 +86,13 @@ async def test_create_duplicate_inventory(
 
 @pytest.mark.asyncio
 async def test_create_inventory_with_nonexistent_warehouse(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    product = await create_product(client)
+    product = await create_product(tenant_client)
     warehouse_id = uuid4()
 
-    response = await client.post(
-        f"/warehouses/{warehouse_id}/inventory",
+    response = await tenant_client.post(
+        f"warehouses/{warehouse_id}/inventory",
         json={
             "product_id": product["id"],
             "quantity": 10,
@@ -107,13 +107,13 @@ async def test_create_inventory_with_nonexistent_warehouse(
 
 @pytest.mark.asyncio
 async def test_create_inventory_with_nonexistent_product(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
     product_id = uuid4()
 
-    response = await client.post(
-        f"/warehouses/{warehouse['id']}/inventory",
+    response = await tenant_client.post(
+        f"warehouses/{warehouse['id']}/inventory",
         json={
             "product_id": str(product_id),
             "quantity": 10,
@@ -165,13 +165,13 @@ async def test_create_inventory_with_nonexistent_product(
     ],
 )
 async def test_create_inventory_with_invalid_payload(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
     payload: dict[str, Any],
 ) -> None:
     warehouse_id = uuid4()
 
-    response = await client.post(
-        f"/warehouses/{warehouse_id}/inventory",
+    response = await tenant_client.post(
+        f"warehouses/{warehouse_id}/inventory",
         json=payload,
     )
 
@@ -180,54 +180,54 @@ async def test_create_inventory_with_invalid_payload(
 
 @pytest.mark.asyncio
 async def test_get_warehouse_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
 
     another_warehouse = await create_warehouse(
-        client,
+        tenant_client,
         name="Tallinn Warehouse",
         location="Tallinn, Estonia",
     )
 
     product_1 = await create_product(
-        client,
+        tenant_client,
         name="NVIDIA RTX 5090",
         sku="RTX5090",
     )
     product_2 = await create_product(
-        client,
+        tenant_client,
         name="NVIDIA RTX 4090",
         sku="RTX4090",
     )
     product_3 = await create_product(
-        client,
+        tenant_client,
         name="NVIDIA RTX 3090",
         sku="RTX3090",
     )
 
     inventory_1 = await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product_1["id"],
         quantity=10,
     )
 
     inventory_2 = await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product_2["id"],
         quantity=20,
     )
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=another_warehouse["id"],
         product_id=product_3["id"],
         quantity=30,
     )
 
-    response = await client.get(f"/warehouses/{warehouse['id']}/inventory")
+    response = await tenant_client.get(f"warehouses/{warehouse['id']}/inventory")
 
     assert response.status_code == 200
 
@@ -249,11 +249,11 @@ async def test_get_warehouse_inventory(
 
 @pytest.mark.asyncio
 async def test_get_inventory_for_nonexistent_warehouse(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
     warehouse_id = uuid4()
 
-    response = await client.get(f"/warehouses/{warehouse_id}/inventory")
+    response = await tenant_client.get(f"warehouses/{warehouse_id}/inventory")
 
     assert response.status_code == 404
     assert response.json()["detail"] == (
@@ -263,23 +263,23 @@ async def test_get_inventory_for_nonexistent_warehouse(
 
 @pytest.mark.asyncio
 async def test_get_warehouse_inventory_pagination(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
 
     products = [
         await create_product(
-            client,
+            tenant_client,
             name="NVIDIA RTX 5090",
             sku="RTX5090",
         ),
         await create_product(
-            client,
+            tenant_client,
             name="NVIDIA RTX 4090",
             sku="RTX4090",
         ),
         await create_product(
-            client,
+            tenant_client,
             name="NVIDIA RTX 3090",
             sku="RTX3090",
         ),
@@ -292,7 +292,7 @@ async def test_get_warehouse_inventory_pagination(
         start=1,
     ):
         item = await create_inventory(
-            client,
+            tenant_client,
             warehouse_id=warehouse["id"],
             product_id=product["id"],
             quantity=index * 10,
@@ -300,8 +300,8 @@ async def test_get_warehouse_inventory_pagination(
 
         inventory.append(item)
 
-    response = await client.get(
-        f"/warehouses/{warehouse['id']}/inventory",
+    response = await tenant_client.get(
+        f"warehouses/{warehouse['id']}/inventory",
         params={
             "limit": 2,
             "offset": 1,
@@ -339,13 +339,13 @@ async def test_get_warehouse_inventory_pagination(
     ],
 )
 async def test_get_inventory_invalid_pagination(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
     params: dict[str, int],
 ) -> None:
     warehouse_id = uuid4()
 
-    response = await client.get(
-        f"/warehouses/{warehouse_id}/inventory",
+    response = await tenant_client.get(
+        f"warehouses/{warehouse_id}/inventory",
         params=params,
     )
 
@@ -354,20 +354,20 @@ async def test_get_inventory_invalid_pagination(
 
 @pytest.mark.asyncio
 async def test_update_inventory_quantity(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     created_inventory = await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
-    response = await client.patch(
-        (f"/warehouses/{warehouse['id']}/inventory/{product['id']}"),
+    response = await tenant_client.patch(
+        (f"warehouses/{warehouse['id']}/inventory/{product['id']}"),
         json={
             "quantity": 99,
         },
@@ -382,7 +382,7 @@ async def test_update_inventory_quantity(
     assert data["warehouse_id"] == warehouse["id"]
     assert data["quantity"] == 99
 
-    get_response = await client.get(f"/warehouses/{warehouse['id']}/inventory")
+    get_response = await tenant_client.get(f"warehouses/{warehouse['id']}/inventory")
 
     assert get_response.status_code == 200
 
@@ -395,13 +395,13 @@ async def test_update_inventory_quantity(
 
 @pytest.mark.asyncio
 async def test_update_inventory_for_nonexistent_warehouse(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
     warehouse_id = uuid4()
     product_id = uuid4()
 
-    response = await client.patch(
-        f"/warehouses/{warehouse_id}/inventory/{product_id}",
+    response = await tenant_client.patch(
+        f"warehouses/{warehouse_id}/inventory/{product_id}",
         json={
             "quantity": 10,
         },
@@ -415,13 +415,13 @@ async def test_update_inventory_for_nonexistent_warehouse(
 
 @pytest.mark.asyncio
 async def test_update_nonexistent_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
     product_id = uuid4()
 
-    response = await client.patch(
-        f"/warehouses/{warehouse['id']}/inventory/{product_id}",
+    response = await tenant_client.patch(
+        f"warehouses/{warehouse['id']}/inventory/{product_id}",
         json={
             "quantity": 10,
         },
@@ -458,14 +458,14 @@ async def test_update_nonexistent_inventory(
     ],
 )
 async def test_update_inventory_with_invalid_payload(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
     payload: dict[str, Any],
 ) -> None:
     warehouse_id = uuid4()
     product_id = uuid4()
 
-    response = await client.patch(
-        f"/warehouses/{warehouse_id}/inventory/{product_id}",
+    response = await tenant_client.patch(
+        f"warehouses/{warehouse_id}/inventory/{product_id}",
         json=payload,
     )
 
@@ -474,10 +474,10 @@ async def test_update_inventory_with_invalid_payload(
 
 @pytest.mark.asyncio
 async def test_create_inventory_with_invalid_warehouse_uuid(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    response = await client.post(
-        "/warehouses/not-a-uuid/inventory",
+    response = await tenant_client.post(
+        "warehouses/not-a-uuid/inventory",
         json={
             "product_id": str(uuid4()),
             "quantity": 10,
@@ -489,10 +489,10 @@ async def test_create_inventory_with_invalid_warehouse_uuid(
 
 @pytest.mark.asyncio
 async def test_update_inventory_with_invalid_warehouse_uuid(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    response = await client.patch(
-        f"/warehouses/not-a-uuid/inventory/{uuid4()}",
+    response = await tenant_client.patch(
+        f"warehouses/not-a-uuid/inventory/{uuid4()}",
         json={
             "quantity": 10,
         },
@@ -503,10 +503,10 @@ async def test_update_inventory_with_invalid_warehouse_uuid(
 
 @pytest.mark.asyncio
 async def test_update_inventory_with_invalid_product_uuid(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    response = await client.patch(
-        f"/warehouses/{uuid4()}/inventory/not-a-uuid",
+    response = await tenant_client.patch(
+        f"warehouses/{uuid4()}/inventory/not-a-uuid",
         json={
             "quantity": 10,
         },
@@ -517,26 +517,26 @@ async def test_update_inventory_with_invalid_product_uuid(
 
 @pytest.mark.asyncio
 async def test_delete_empty_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=0,
     )
 
-    response = await client.delete(
-        f"/warehouses/{warehouse['id']}/inventory/{product['id']}"
+    response = await tenant_client.delete(
+        f"warehouses/{warehouse['id']}/inventory/{product['id']}"
     )
 
     assert response.status_code == 204
     assert response.content == b""
 
-    list_response = await client.get(f"/warehouses/{warehouse['id']}/inventory")
+    list_response = await tenant_client.get(f"warehouses/{warehouse['id']}/inventory")
 
     assert list_response.status_code == 200
     assert list_response.json() == []
@@ -544,20 +544,20 @@ async def test_delete_empty_inventory(
 
 @pytest.mark.asyncio
 async def test_delete_non_empty_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     inventory = await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
-    response = await client.delete(
-        f"/warehouses/{warehouse['id']}/inventory/{product['id']}"
+    response = await tenant_client.delete(
+        f"warehouses/{warehouse['id']}/inventory/{product['id']}"
     )
 
     assert response.status_code == 409
@@ -567,7 +567,7 @@ async def test_delete_non_empty_inventory(
         f"cannot be deleted since it is not empty"
     )
 
-    list_response = await client.get(f"/warehouses/{warehouse['id']}/inventory")
+    list_response = await tenant_client.get(f"warehouses/{warehouse['id']}/inventory")
 
     assert list_response.status_code == 200
 
@@ -580,13 +580,13 @@ async def test_delete_non_empty_inventory(
 
 @pytest.mark.asyncio
 async def test_delete_nonexistent_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
     product_id = uuid4()
 
-    response = await client.delete(
-        f"/warehouses/{warehouse['id']}/inventory/{product_id}"
+    response = await tenant_client.delete(
+        f"warehouses/{warehouse['id']}/inventory/{product_id}"
     )
 
     assert response.status_code == 404
@@ -598,29 +598,29 @@ async def test_delete_nonexistent_inventory(
 
 @pytest.mark.asyncio
 async def test_delete_inventory_with_invalid_uuid(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    response = await client.delete(f"/warehouses/not-a-uuid/inventory/{uuid4()}")
+    response = await tenant_client.delete(f"warehouses/not-a-uuid/inventory/{uuid4()}")
 
     assert response.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_update_inventory_below_reserved_quantity_is_rejected(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ) -> None:
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
-    order_response = await client.post(
-        "/orders",
+    order_response = await tenant_client.post(
+        "orders",
         json={
             "items": [
                 {
@@ -635,14 +635,14 @@ async def test_update_inventory_below_reserved_quantity_is_rejected(
 
     order = order_response.json()
 
-    allocation_response = await client.post(
-        f"/orders/{order['id']}/allocate"
+    allocation_response = await tenant_client.post(
+        f"orders/{order['id']}/allocate"
     )
 
     assert allocation_response.status_code == 200
 
-    update_response = await client.patch(
-        f"/warehouses/{warehouse['id']}/inventory/{product['id']}",
+    update_response = await tenant_client.patch(
+        f"warehouses/{warehouse['id']}/inventory/{product['id']}",
         json={
             "quantity": 5,
         },
@@ -656,8 +656,8 @@ async def test_update_inventory_below_reserved_quantity_is_rejected(
         f"because 6 units are reserved"
     )
 
-    inventory_response = await client.get(
-        f"/warehouses/{warehouse['id']}/inventory"
+    inventory_response = await tenant_client.get(
+        f"warehouses/{warehouse['id']}/inventory"
     )
 
     assert inventory_response.status_code == 200

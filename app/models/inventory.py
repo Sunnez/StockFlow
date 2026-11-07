@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     CheckConstraint,
-    ForeignKey,
+    ForeignKeyConstraint,
     Index,
     UniqueConstraint,
     Uuid,
@@ -37,6 +37,37 @@ class Inventory(Base):
 
     __table_args__ = (
         UniqueConstraint(
+            "organization_id",
+            "id",
+            "product_id",
+            name="uq_inventory_organization_id_product",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "product_id"],
+            ["products.organization_id", "products.id"],
+            name=FK_INVENTORY_PRODUCT,
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "warehouse_id"],
+            ["warehouses.organization_id", "warehouses.id"],
+            name=FK_INVENTORY_WAREHOUSE,
+            ondelete="RESTRICT",
+        ),
+        Index(
+            "ix_inventory_organization_product_lock",
+            "organization_id",
+            "product_id",
+            "warehouse_id",
+            "id",
+        ),
+        Index(
+            "ix_inventory_organization_warehouse_id",
+            "organization_id",
+            "warehouse_id",
+            "id",
+        ),
+        UniqueConstraint(
             "product_id",
             "warehouse_id",
             name=UQ_INVENTORY_PRODUCT_WAREHOUSE,
@@ -59,6 +90,8 @@ class Inventory(Base):
         ),
     )
 
+    organization_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         primary_key=True,
@@ -67,19 +100,11 @@ class Inventory(Base):
 
     product_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey(
-            "products.id",
-            name=FK_INVENTORY_PRODUCT,
-        ),
         nullable=False,
     )
 
     warehouse_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey(
-            "warehouses.id",
-            name=FK_INVENTORY_WAREHOUSE,
-        ),
         nullable=False,
     )
 
@@ -95,6 +120,7 @@ class Inventory(Base):
 
     allocations: Mapped[list[OrderAllocation]] = relationship(
         back_populates="inventory",
+        foreign_keys="OrderAllocation.inventory_id",
         passive_deletes=True,
     )
 

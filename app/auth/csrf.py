@@ -11,7 +11,7 @@ def _csrf_signature(
     session_id: UUID,
     nonce: str,
 ) -> str:
-    message = f"{session_id}:{nonce}".encode("utf-8")
+    message = f"{session_id}:{nonce}".encode()
 
     return hmac.new(
         settings.csrf_secret_key.get_secret_value().encode("utf-8"),
@@ -36,6 +36,9 @@ def verify_csrf_token(
         return False
 
     if len(cookie_token) > 256 or len(header_token) > 256:
+        return False
+
+    if not cookie_token.isascii() or not header_token.isascii():
         return False
 
     if not hmac.compare_digest(cookie_token, header_token):

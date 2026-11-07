@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Uuid, func
+from sqlalchemy import DateTime, ForeignKey, Index, UniqueConstraint, Uuid, func
 from sqlalchemy import Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,21 @@ CK_ORDERS_STATUS = "ck_orders_status"
 
 class Order(Base):
     __tablename__ = "orders"
+
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id", name="uq_orders_organization_id"),
+        Index(
+            "ix_orders_organization_created_id", "organization_id", "created_at", "id"
+        ),
+    )
+
+    organization_id: Mapped[UUID] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey(
+            "organizations.id", name="fk_orders_organization", ondelete="RESTRICT"
+        ),
+        nullable=False,
+    )
 
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
@@ -47,6 +62,7 @@ class Order(Base):
 
     items: Mapped[list[OrderItem]] = relationship(
         back_populates="order",
+        foreign_keys="OrderItem.order_id",
         cascade="all, delete-orphan",
         order_by="OrderItem.position",
     )

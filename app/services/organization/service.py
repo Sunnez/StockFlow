@@ -16,6 +16,10 @@ from app.models.organization import UQ_ORGANIZATIONS_SLUG, Organization
 from app.models.organization_membership import OrganizationMembership
 from app.models.user import User
 from app.schemas.organization import OrganizationMemberRead
+from app.services.organization.authorization import (
+    ORGANIZATION_ADMIN_ROLES,
+    lock_actor_membership,
+)
 
 
 async def create_organization(
@@ -48,9 +52,7 @@ async def create_organization(
                 break
 
         if organization is None:
-            raise ConflictError(
-                "Could not generate a unique organization slug"
-            )
+            raise ConflictError("Could not generate a unique organization slug")
 
         membership = OrganizationMembership(
             user_id=owner_id,
@@ -79,8 +81,7 @@ async def list_user_organizations(
         )
         .join(
             OrganizationMembership,
-            OrganizationMembership.organization_id
-            == Organization.id,
+            OrganizationMembership.organization_id == Organization.id,
         )
         .where(
             OrganizationMembership.user_id == user_id,
@@ -97,20 +98,24 @@ async def list_user_organizations(
         result = await db.execute(stmt)
         rows = result.all()
 
-    return [
-        (organization, role)
-        for organization, role in rows
-    ]
+    return [(organization, role) for organization, role in rows]
 
 
 async def update_organization_name(
     db: AsyncSession,
     *,
     organization_id: UUID,
+    actor_id: UUID,
     name: str,
 ) -> Organization:
 
     async with db.begin():
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+            allowed_roles=ORGANIZATION_ADMIN_ROLES,
+        )
         stmt = (
             select(Organization)
             .where(Organization.id == organization_id)
@@ -133,6 +138,7 @@ async def list_organization_members(
     db: AsyncSession,
     *,
     organization_id: UUID,
+    actor_id: UUID,
     limit: int = 50,
     offset: int = 0,
 ) -> list[OrganizationMemberRead]:
@@ -160,6 +166,12 @@ async def list_organization_members(
     )
 
     async with db.begin():
+        await lock_actor_membership(
+            db,
+            organization_id=organization_id,
+            actor_id=actor_id,
+            allowed_roles=ORGANIZATION_ADMIN_ROLES,
+        )
         result = await db.execute(stmt)
         rows = result.all()
 
@@ -184,20 +196,35 @@ async def add_organization_member(
 ) -> OrganizationMemberRead:
 
     if role == OrganizationRole.OWNER:
-        raise ApplicationValidationError(
-            "Owner role cannot be assigned directly"
-        )
+        raise ApplicationValidationError("Owner role cannot be assigned directly")
 
     async with db.begin():
-        actor_membership = await db.scalar(
+        # Resolve the target first, then lock existing memberships in the same UUID
+        # order as removal. Locking only the actor before ON CONFLICT can deadlock
+        # with a concurrent removal of the target by the same actor.
+        user = await db.scalar(
+            select(User).where(
+                func.lower(User.email) == email.strip().lower(),
+                User.is_active.is_(True),
+            )
+        )
+        member_ids = {actor_id}
+        if user is not None:
+            member_ids.add(user.id)
+        result = await db.execute(
             select(OrganizationMembership)
             .where(
                 OrganizationMembership.organization_id == organization_id,
-                OrganizationMembership.user_id == actor_id,
+                OrganizationMembership.user_id.in_(member_ids),
             )
+            .order_by(OrganizationMembership.user_id)
+            .execution_options(populate_existing=True)
             .with_for_update()
         )
-
+        memberships = {
+            membership.user_id: membership for membership in result.scalars().all()
+        }
+        actor_membership = memberships.get(actor_id)
         if actor_membership is None:
             raise NotFoundError("Organization not found")
 
@@ -207,30 +234,15 @@ async def add_organization_member(
                 OrganizationRole.MANAGER,
                 OrganizationRole.VIEWER,
             }
-
         elif actor_membership.role == OrganizationRole.ADMIN:
             allowed_roles = {
                 OrganizationRole.MANAGER,
                 OrganizationRole.VIEWER,
             }
-
         else:
-            raise ForbiddenError(
-                "Insufficient organization permissions"
-            )
-
+            raise ForbiddenError("Insufficient organization permissions")
         if role not in allowed_roles:
-            raise ForbiddenError(
-                "Cannot assign the requested role"
-            )
-
-        user = await db.scalar(
-            select(User).where(
-                func.lower(User.email) == email.strip().lower(),
-                User.is_active.is_(True),
-            )
-        )
-
+            raise ForbiddenError("Cannot assign the requested role")
         if user is None:
             raise NotFoundError("User not found")
 
@@ -253,9 +265,7 @@ async def add_organization_member(
         joined_at = await db.scalar(stmt)
 
         if joined_at is None:
-            raise ConflictError(
-                "User is already a member of this organization"
-            )
+            raise ConflictError("User is already a member of this organization")
 
     return OrganizationMemberRead(
         user_id=user.id,
@@ -274,18 +284,14 @@ async def remove_organization_member(
 ) -> None:
 
     if actor_id == target_user_id:
-        raise ForbiddenError(
-            "You cannot remove yourself from the organization"
-        )
+        raise ForbiddenError("You cannot remove yourself from the organization")
 
     async with db.begin():
         stmt = (
             select(OrganizationMembership)
             .where(
                 OrganizationMembership.organization_id == organization_id,
-                OrganizationMembership.user_id.in_(
-                    [actor_id, target_user_id]
-                ),
+                OrganizationMembership.user_id.in_([actor_id, target_user_id]),
             )
             .order_by(OrganizationMembership.user_id)
             .with_for_update()
@@ -294,8 +300,7 @@ async def remove_organization_member(
         result = await db.execute(stmt)
 
         memberships = {
-            membership.user_id: membership
-            for membership in result.scalars().all()
+            membership.user_id: membership for membership in result.scalars().all()
         }
 
         actor = memberships.get(actor_id)
@@ -308,9 +313,7 @@ async def remove_organization_member(
             raise NotFoundError("Organization member not found")
 
         if ROLE_LEVEL[actor.role] <= ROLE_LEVEL[target.role]:
-            raise ForbiddenError(
-                "Cannot remove a member with equal or higher role"
-            )
+            raise ForbiddenError("Cannot remove a member with equal or higher role")
 
         await db.delete(target)
         await db.flush()

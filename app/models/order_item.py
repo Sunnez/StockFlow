@@ -3,7 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, UniqueConstraint, Uuid
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKeyConstraint,
+    Index,
+    UniqueConstraint,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -26,6 +32,24 @@ class OrderItem(Base):
     __tablename__ = "order_items"
 
     __table_args__ = (
+        UniqueConstraint(
+            "organization_id",
+            "id",
+            "product_id",
+            name="uq_order_items_organization_id_product",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "order_id"],
+            ["orders.organization_id", "orders.id"],
+            name=FK_ORDER_ITEMS_ORDER,
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "product_id"],
+            ["products.organization_id", "products.id"],
+            name=FK_ORDER_ITEMS_PRODUCT,
+            ondelete="RESTRICT",
+        ),
         UniqueConstraint(
             "order_id",
             "product_id",
@@ -50,6 +74,8 @@ class OrderItem(Base):
         ),
     )
 
+    organization_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         primary_key=True,
@@ -58,21 +84,11 @@ class OrderItem(Base):
 
     order_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey(
-            "orders.id",
-            name=FK_ORDER_ITEMS_ORDER,
-            ondelete="CASCADE",
-        ),
         nullable=False,
     )
 
     product_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey(
-            "products.id",
-            name=FK_ORDER_ITEMS_PRODUCT,
-            ondelete="RESTRICT",
-        ),
         nullable=False,
     )
 
@@ -84,10 +100,12 @@ class OrderItem(Base):
 
     order: Mapped[Order] = relationship(
         back_populates="items",
+        foreign_keys=[order_id],
     )
 
     allocations: Mapped[list[OrderAllocation]] = relationship(
         back_populates="order_item",
+        foreign_keys="OrderAllocation.order_item_id",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )

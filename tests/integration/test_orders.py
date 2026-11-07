@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pytest
 from httpx import AsyncClient
+
 from tests.factories import (
     create_inventory,
     create_product,
@@ -14,12 +15,12 @@ pytestmark = pytest.mark.asyncio
 
 
 async def create_order(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
     *,
     items: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    response = await client.post(
-        "/orders",
+    response = await tenant_client.post(
+        "orders",
         json={
             "items": items,
         },
@@ -31,12 +32,12 @@ async def create_order(
 
 
 async def get_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
     *,
     warehouse_id: str,
     product_id: str,
 ) -> dict[str, Any]:
-    response = await client.get(f"/warehouses/{warehouse_id}/inventory")
+    response = await tenant_client.get(f"warehouses/{warehouse_id}/inventory")
 
     assert response.status_code == 200, response.text
 
@@ -56,12 +57,12 @@ async def get_inventory(
 
 
 async def test_create_order(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
+    product = await create_product(tenant_client)
 
-    response = await client.post(
-        "/orders",
+    response = await tenant_client.post(
+        "orders",
         json={
             "items": [
                 {
@@ -87,12 +88,12 @@ async def test_create_order(
 
 
 async def test_create_order_rejects_duplicate_product(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
+    product = await create_product(tenant_client)
 
-    response = await client.post(
-        "/orders",
+    response = await tenant_client.post(
+        "orders",
         json={
             "items": [
                 {
@@ -111,12 +112,12 @@ async def test_create_order_rejects_duplicate_product(
 
 
 async def test_create_order_rejects_missing_product(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
     missing_product_id = str(uuid4())
 
-    response = await client.post(
-        "/orders",
+    response = await tenant_client.post(
+        "orders",
         json={
             "items": [
                 {
@@ -131,20 +132,20 @@ async def test_create_order_rejects_missing_product(
 
 
 async def test_get_order_not_found(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    response = await client.get(f"/orders/{uuid4()}")
+    response = await tenant_client.get(f"orders/{uuid4()}")
 
     assert response.status_code == 404
 
 
 async def test_list_orders(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
+    product = await create_product(tenant_client)
 
     first_order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -154,7 +155,7 @@ async def test_list_orders(
     )
 
     second_order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -163,7 +164,7 @@ async def test_list_orders(
         ],
     )
 
-    response = await client.get("/orders")
+    response = await tenant_client.get("orders")
 
     assert response.status_code == 200
 
@@ -176,22 +177,22 @@ async def test_list_orders(
 
 
 async def test_update_pending_order(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
     first_product = await create_product(
-        client,
+        tenant_client,
         name="RTX 5090",
         sku="RTX5090",
     )
 
     second_product = await create_product(
-        client,
+        tenant_client,
         name="RTX 5080",
         sku="RTX5080",
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": first_product["id"],
@@ -200,8 +201,8 @@ async def test_update_pending_order(
         ],
     )
 
-    response = await client.patch(
-        f"/orders/{order['id']}",
+    response = await tenant_client.patch(
+        f"orders/{order['id']}",
         json={
             "items": [
                 {
@@ -224,20 +225,20 @@ async def test_update_pending_order(
 
 
 async def test_update_allocated_order_is_rejected(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -246,12 +247,12 @@ async def test_update_allocated_order_is_rejected(
         ],
     )
 
-    allocation_response = await client.post(f"/orders/{order['id']}/allocate")
+    allocation_response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert allocation_response.status_code == 200
 
-    response = await client.patch(
-        f"/orders/{order['id']}",
+    response = await tenant_client.patch(
+        f"orders/{order['id']}",
         json={
             "items": [
                 {
@@ -266,12 +267,12 @@ async def test_update_allocated_order_is_rejected(
 
 
 async def test_delete_pending_order(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
+    product = await create_product(tenant_client)
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -280,30 +281,30 @@ async def test_delete_pending_order(
         ],
     )
 
-    response = await client.delete(f"/orders/{order['id']}")
+    response = await tenant_client.delete(f"orders/{order['id']}")
 
     assert response.status_code == 204
 
-    get_response = await client.get(f"/orders/{order['id']}")
+    get_response = await tenant_client.get(f"orders/{order['id']}")
 
     assert get_response.status_code == 404
 
 
 async def test_delete_allocated_order_is_rejected(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -312,11 +313,11 @@ async def test_delete_allocated_order_is_rejected(
         ],
     )
 
-    allocation_response = await client.post(f"/orders/{order['id']}/allocate")
+    allocation_response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert allocation_response.status_code == 200
 
-    response = await client.delete(f"/orders/{order['id']}")
+    response = await tenant_client.delete(f"orders/{order['id']}")
 
     assert response.status_code == 409
 
@@ -327,20 +328,20 @@ async def test_delete_allocated_order_is_rejected(
 
 
 async def test_allocate_order_from_single_warehouse(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     inventory = await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -349,7 +350,7 @@ async def test_allocate_order_from_single_warehouse(
         ],
     )
 
-    response = await client.post(f"/orders/{order['id']}/allocate")
+    response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert response.status_code == 200
 
@@ -367,7 +368,7 @@ async def test_allocate_order_from_single_warehouse(
     assert allocation["quantity"] == 6
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -378,38 +379,38 @@ async def test_allocate_order_from_single_warehouse(
 
 
 async def test_allocate_order_can_split_between_warehouses(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
+    product = await create_product(tenant_client)
 
     first_warehouse = await create_warehouse(
-        client,
+        tenant_client,
         name="Riga Warehouse",
         location="Riga, Latvia",
     )
 
     second_warehouse = await create_warehouse(
-        client,
+        tenant_client,
         name="Tallinn Warehouse",
         location="Tallinn, Estonia",
     )
 
     first_inventory = await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=first_warehouse["id"],
         product_id=product["id"],
         quantity=7,
     )
 
     second_inventory = await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=second_warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -418,7 +419,7 @@ async def test_allocate_order_can_split_between_warehouses(
         ],
     )
 
-    response = await client.post(f"/orders/{order['id']}/allocate")
+    response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert response.status_code == 200
 
@@ -441,13 +442,13 @@ async def test_allocate_order_can_split_between_warehouses(
     }
 
     first_current = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=first_warehouse["id"],
         product_id=product["id"],
     )
 
     second_current = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=second_warehouse["id"],
         product_id=product["id"],
     )
@@ -462,20 +463,20 @@ async def test_allocate_order_can_split_between_warehouses(
 
 
 async def test_allocate_order_respects_existing_reservations(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     first_order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -484,12 +485,12 @@ async def test_allocate_order_respects_existing_reservations(
         ],
     )
 
-    first_response = await client.post(f"/orders/{first_order['id']}/allocate")
+    first_response = await tenant_client.post(f"orders/{first_order['id']}/allocate")
 
     assert first_response.status_code == 200
 
     second_order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -498,12 +499,12 @@ async def test_allocate_order_respects_existing_reservations(
         ],
     )
 
-    second_response = await client.post(f"/orders/{second_order['id']}/allocate")
+    second_response = await tenant_client.post(f"orders/{second_order['id']}/allocate")
 
     assert second_response.status_code == 200
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -514,20 +515,20 @@ async def test_allocate_order_respects_existing_reservations(
 
 
 async def test_allocate_order_with_insufficient_stock_rolls_back(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=3,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -536,12 +537,12 @@ async def test_allocate_order_with_insufficient_stock_rolls_back(
         ],
     )
 
-    response = await client.post(f"/orders/{order['id']}/allocate")
+    response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert response.status_code == 409
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -550,7 +551,7 @@ async def test_allocate_order_with_insufficient_stock_rolls_back(
     assert current_inventory["reserved_quantity"] == 0
     assert current_inventory["available_quantity"] == 3
 
-    order_response = await client.get(f"/orders/{order['id']}")
+    order_response = await tenant_client.get(f"orders/{order['id']}")
 
     assert order_response.status_code == 200
 
@@ -561,38 +562,38 @@ async def test_allocate_order_with_insufficient_stock_rolls_back(
 
 
 async def test_allocate_order_rolls_back_all_products_if_one_is_insufficient(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
     first_product = await create_product(
-        client,
+        tenant_client,
         name="RTX 5090",
         sku="RTX5090",
     )
 
     second_product = await create_product(
-        client,
+        tenant_client,
         name="RTX 5080",
         sku="RTX5080",
     )
 
-    warehouse = await create_warehouse(client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=first_product["id"],
         quantity=10,
     )
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=second_product["id"],
         quantity=2,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": first_product["id"],
@@ -605,18 +606,18 @@ async def test_allocate_order_rolls_back_all_products_if_one_is_insufficient(
         ],
     )
 
-    response = await client.post(f"/orders/{order['id']}/allocate")
+    response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert response.status_code == 409
 
     first_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=first_product["id"],
     )
 
     second_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=second_product["id"],
     )
@@ -624,7 +625,7 @@ async def test_allocate_order_rolls_back_all_products_if_one_is_insufficient(
     assert first_inventory["reserved_quantity"] == 0
     assert second_inventory["reserved_quantity"] == 0
 
-    order_response = await client.get(f"/orders/{order['id']}")
+    order_response = await tenant_client.get(f"orders/{order['id']}")
 
     assert order_response.status_code == 200
 
@@ -636,20 +637,20 @@ async def test_allocate_order_rolls_back_all_products_if_one_is_insufficient(
 
 
 async def test_allocate_order_twice_is_rejected(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -658,16 +659,16 @@ async def test_allocate_order_twice_is_rejected(
         ],
     )
 
-    first_response = await client.post(f"/orders/{order['id']}/allocate")
+    first_response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert first_response.status_code == 200
 
-    second_response = await client.post(f"/orders/{order['id']}/allocate")
+    second_response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert second_response.status_code == 409
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -681,20 +682,20 @@ async def test_allocate_order_twice_is_rejected(
 
 
 async def test_fulfill_allocated_order(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     inventory = await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -703,11 +704,11 @@ async def test_fulfill_allocated_order(
         ],
     )
 
-    allocation_response = await client.post(f"/orders/{order['id']}/allocate")
+    allocation_response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert allocation_response.status_code == 200
 
-    response = await client.post(f"/orders/{order['id']}/fulfill")
+    response = await tenant_client.post(f"orders/{order['id']}/fulfill")
 
     assert response.status_code == 200
 
@@ -722,7 +723,7 @@ async def test_fulfill_allocated_order(
     assert allocations[0]["quantity"] == 6
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -733,20 +734,20 @@ async def test_fulfill_allocated_order(
 
 
 async def test_fulfill_pending_order_is_rejected(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -755,12 +756,12 @@ async def test_fulfill_pending_order_is_rejected(
         ],
     )
 
-    response = await client.post(f"/orders/{order['id']}/fulfill")
+    response = await tenant_client.post(f"orders/{order['id']}/fulfill")
 
     assert response.status_code == 409
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -770,20 +771,20 @@ async def test_fulfill_pending_order_is_rejected(
 
 
 async def test_fulfill_order_twice_is_rejected_without_double_debit(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -792,20 +793,20 @@ async def test_fulfill_order_twice_is_rejected_without_double_debit(
         ],
     )
 
-    allocation_response = await client.post(f"/orders/{order['id']}/allocate")
+    allocation_response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert allocation_response.status_code == 200
 
-    first_fulfill = await client.post(f"/orders/{order['id']}/fulfill")
+    first_fulfill = await tenant_client.post(f"orders/{order['id']}/fulfill")
 
     assert first_fulfill.status_code == 200
 
-    second_fulfill = await client.post(f"/orders/{order['id']}/fulfill")
+    second_fulfill = await tenant_client.post(f"orders/{order['id']}/fulfill")
 
     assert second_fulfill.status_code == 409
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -820,12 +821,12 @@ async def test_fulfill_order_twice_is_rejected_without_double_debit(
 
 
 async def test_cancel_pending_order(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
+    product = await create_product(tenant_client)
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -834,7 +835,7 @@ async def test_cancel_pending_order(
         ],
     )
 
-    response = await client.post(f"/orders/{order['id']}/cancel")
+    response = await tenant_client.post(f"orders/{order['id']}/cancel")
 
     assert response.status_code == 200
 
@@ -843,26 +844,26 @@ async def test_cancel_pending_order(
     assert body["status"] == "cancelled"
     assert body["items"][0]["allocations"] == []
 
-    second_response = await client.post(f"/orders/{order['id']}/cancel")
+    second_response = await tenant_client.post(f"orders/{order['id']}/cancel")
 
     assert second_response.status_code == 409
 
 
 async def test_cancel_allocated_order_releases_reservation(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     inventory = await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -871,12 +872,12 @@ async def test_cancel_allocated_order_releases_reservation(
         ],
     )
 
-    allocation_response = await client.post(f"/orders/{order['id']}/allocate")
+    allocation_response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert allocation_response.status_code == 200
 
     allocated_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -884,7 +885,7 @@ async def test_cancel_allocated_order_releases_reservation(
     assert allocated_inventory["quantity"] == 10
     assert allocated_inventory["reserved_quantity"] == 6
 
-    response = await client.post(f"/orders/{order['id']}/cancel")
+    response = await tenant_client.post(f"orders/{order['id']}/cancel")
 
     assert response.status_code == 200
 
@@ -899,7 +900,7 @@ async def test_cancel_allocated_order_releases_reservation(
     assert allocations[0]["quantity"] == 6
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -910,20 +911,20 @@ async def test_cancel_allocated_order_releases_reservation(
 
 
 async def test_cancel_fulfilled_order_is_rejected(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -932,20 +933,20 @@ async def test_cancel_fulfilled_order_is_rejected(
         ],
     )
 
-    allocation_response = await client.post(f"/orders/{order['id']}/allocate")
+    allocation_response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert allocation_response.status_code == 200
 
-    fulfill_response = await client.post(f"/orders/{order['id']}/fulfill")
+    fulfill_response = await tenant_client.post(f"orders/{order['id']}/fulfill")
 
     assert fulfill_response.status_code == 200
 
-    cancel_response = await client.post(f"/orders/{order['id']}/cancel")
+    cancel_response = await tenant_client.post(f"orders/{order['id']}/cancel")
 
     assert cancel_response.status_code == 409
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -960,20 +961,20 @@ async def test_cancel_fulfilled_order_is_rejected(
 
 
 async def test_inventory_used_by_historical_allocation_cannot_be_deleted(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=6,
     )
 
     order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -982,16 +983,16 @@ async def test_inventory_used_by_historical_allocation_cannot_be_deleted(
         ],
     )
 
-    allocation_response = await client.post(f"/orders/{order['id']}/allocate")
+    allocation_response = await tenant_client.post(f"orders/{order['id']}/allocate")
 
     assert allocation_response.status_code == 200
 
-    fulfill_response = await client.post(f"/orders/{order['id']}/fulfill")
+    fulfill_response = await tenant_client.post(f"orders/{order['id']}/fulfill")
 
     assert fulfill_response.status_code == 200
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -999,14 +1000,14 @@ async def test_inventory_used_by_historical_allocation_cannot_be_deleted(
     assert current_inventory["quantity"] == 0
     assert current_inventory["reserved_quantity"] == 0
 
-    delete_response = await client.delete(
-        f"/warehouses/{warehouse['id']}/inventory/{product['id']}"
+    delete_response = await tenant_client.delete(
+        f"warehouses/{warehouse['id']}/inventory/{product['id']}"
     )
 
     assert delete_response.status_code == 409
 
     inventory_after_delete_attempt = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -1020,20 +1021,20 @@ async def test_inventory_used_by_historical_allocation_cannot_be_deleted(
 
 
 async def test_concurrent_orders_cannot_over_reserve_inventory(
-    client: AsyncClient,
+    tenant_client: AsyncClient,
 ):
-    product = await create_product(client)
-    warehouse = await create_warehouse(client)
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
 
     await create_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
         quantity=10,
     )
 
     first_order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -1043,7 +1044,7 @@ async def test_concurrent_orders_cannot_over_reserve_inventory(
     )
 
     second_order = await create_order(
-        client,
+        tenant_client,
         items=[
             {
                 "product_id": product["id"],
@@ -1053,8 +1054,8 @@ async def test_concurrent_orders_cannot_over_reserve_inventory(
     )
 
     first_response, second_response = await asyncio.gather(
-        client.post(f"/orders/{first_order['id']}/allocate"),
-        client.post(f"/orders/{second_order['id']}/allocate"),
+        tenant_client.post(f"orders/{first_order['id']}/allocate"),
+        tenant_client.post(f"orders/{second_order['id']}/allocate"),
     )
 
     assert sorted(
@@ -1065,7 +1066,7 @@ async def test_concurrent_orders_cannot_over_reserve_inventory(
     ) == [200, 409]
 
     current_inventory = await get_inventory(
-        client,
+        tenant_client,
         warehouse_id=warehouse["id"],
         product_id=product["id"],
     )
@@ -1074,9 +1075,9 @@ async def test_concurrent_orders_cannot_over_reserve_inventory(
     assert current_inventory["reserved_quantity"] == 10
     assert current_inventory["available_quantity"] == 0
 
-    first_order_response = await client.get(f"/orders/{first_order['id']}")
+    first_order_response = await tenant_client.get(f"orders/{first_order['id']}")
 
-    second_order_response = await client.get(f"/orders/{second_order['id']}")
+    second_order_response = await tenant_client.get(f"orders/{second_order['id']}")
 
     assert first_order_response.status_code == 200
     assert second_order_response.status_code == 200
@@ -1092,3 +1093,108 @@ async def test_concurrent_orders_cannot_over_reserve_inventory(
         "allocated",
         "pending",
     ]
+
+
+@pytest.mark.parametrize("action", ["allocate", "fulfill", "cancel"])
+async def test_concurrent_duplicate_transition_changes_stock_once(
+    tenant_client, action
+):
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
+    await create_inventory(
+        tenant_client,
+        warehouse_id=warehouse["id"],
+        product_id=product["id"],
+        quantity=10,
+    )
+    order = await create_order(
+        tenant_client, items=[{"product_id": product["id"], "quantity": 6}]
+    )
+    if action != "allocate":
+        assert (
+            await tenant_client.post(f"orders/{order['id']}/allocate")
+        ).status_code == 200
+    responses = await asyncio.wait_for(
+        asyncio.gather(
+            tenant_client.post(f"orders/{order['id']}/{action}"),
+            tenant_client.post(f"orders/{order['id']}/{action}"),
+        ),
+        timeout=30,
+    )
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    stock = await get_inventory(
+        tenant_client, warehouse_id=warehouse["id"], product_id=product["id"]
+    )
+    assert stock["quantity"] == (4 if action == "fulfill" else 10)
+    assert stock["reserved_quantity"] == (6 if action == "allocate" else 0)
+    current = (await tenant_client.get(f"orders/{order['id']}")).json()
+    assert len(current["items"][0]["allocations"]) == 1
+
+
+async def test_concurrent_fulfill_cancel_has_one_terminal_winner(tenant_client):
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
+    await create_inventory(
+        tenant_client,
+        warehouse_id=warehouse["id"],
+        product_id=product["id"],
+        quantity=10,
+    )
+    order = await create_order(
+        tenant_client, items=[{"product_id": product["id"], "quantity": 6}]
+    )
+    assert (
+        await tenant_client.post(f"orders/{order['id']}/allocate")
+    ).status_code == 200
+    responses = await asyncio.wait_for(
+        asyncio.gather(
+            tenant_client.post(f"orders/{order['id']}/fulfill"),
+            tenant_client.post(f"orders/{order['id']}/cancel"),
+        ),
+        timeout=30,
+    )
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    current = (await tenant_client.get(f"orders/{order['id']}")).json()
+    stock = await get_inventory(
+        tenant_client, warehouse_id=warehouse["id"], product_id=product["id"]
+    )
+    assert current["status"] in {"fulfilled", "cancelled"}
+    assert stock["reserved_quantity"] == 0
+    assert stock["quantity"] == (4 if current["status"] == "fulfilled" else 10)
+
+
+async def test_concurrent_stock_reduction_and_allocation_preserve_reservations(
+    tenant_client,
+):
+    product = await create_product(tenant_client)
+    warehouse = await create_warehouse(tenant_client)
+    await create_inventory(
+        tenant_client,
+        warehouse_id=warehouse["id"],
+        product_id=product["id"],
+        quantity=10,
+    )
+    order = await create_order(
+        tenant_client, items=[{"product_id": product["id"], "quantity": 6}]
+    )
+    responses = await asyncio.wait_for(
+        asyncio.gather(
+            tenant_client.post(f"orders/{order['id']}/allocate"),
+            tenant_client.patch(
+                f"warehouses/{warehouse['id']}/inventory/{product['id']}",
+                json={"quantity": 5},
+            ),
+        ),
+        timeout=30,
+    )
+    assert sorted(response.status_code for response in responses) == [200, 409]
+    current = (await tenant_client.get(f"orders/{order['id']}")).json()
+    stock = await get_inventory(
+        tenant_client, warehouse_id=warehouse["id"], product_id=product["id"]
+    )
+    if current["status"] == "allocated":
+        assert (stock["quantity"], stock["reserved_quantity"]) == (10, 6)
+    else:
+        assert current["status"] == "pending"
+        assert current["items"][0]["allocations"] == []
+        assert (stock["quantity"], stock["reserved_quantity"]) == (5, 0)

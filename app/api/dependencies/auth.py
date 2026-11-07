@@ -1,10 +1,11 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
 import jwt
 from fastapi import Cookie, Depends, Header
+from fastapi.security import APIKeyCookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import verify_csrf_token
@@ -13,6 +14,17 @@ from app.core.exceptions import ForbiddenError, UnauthorizedError
 from app.db.session import get_db
 from app.models.auth_session import AuthSession
 from app.models.user import User
+
+access_cookie = APIKeyCookie(
+    name="access_token",
+    scheme_name="AccessCookie",
+    auto_error=False,
+    description=(
+        "HttpOnly cookie issued by POST /auth/login. Browser requests must include "
+        "credentials. Unsafe requests also require a trusted Origin/Referer and "
+        "the signed csrf_token cookie copied to X-CSRF-Token."
+    ),
+)
 
 
 @dataclass(frozen=True)
@@ -23,7 +35,7 @@ class AuthContext:
 
 async def get_auth_context(
     db: Annotated[AsyncSession, Depends(get_db)],
-    access_token: Annotated[str | None, Cookie()] = None,
+    access_token: Annotated[str | None, Depends(access_cookie)] = None,
 ) -> AuthContext:
     if access_token is None:
         raise UnauthorizedError("Not authenticated")
@@ -40,7 +52,7 @@ async def get_auth_context(
             auth_session is None
             or auth_session.user_id != user_id
             or auth_session.revoked_at is not None
-            or auth_session.expires_at <= datetime.now(timezone.utc)
+            or auth_session.expires_at <= datetime.now(UTC)
         ):
             raise UnauthorizedError("Not authenticated")
 

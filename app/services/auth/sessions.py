@@ -1,12 +1,14 @@
 import hmac
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
+import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.csrf import verify_csrf_token
+from app.auth.jwt import decode_access_token
 from app.auth.refresh_tokens import (
     generate_refresh_token,
     hash_refresh_secret,
@@ -31,7 +33,7 @@ async def create_auth_session(
     auth_session = AuthSession(
         user_id=user_id,
         expires_at=(
-            datetime.now(timezone.utc)
+            datetime.now(UTC)
             + timedelta(days=settings.auth_session_expire_days)
         ),
     )
@@ -119,7 +121,7 @@ async def rotate_refresh_token(
             raise ForbiddenError("Invalid CSRF token")
         
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         if (
             auth_session.revoked_at is not None
@@ -174,10 +176,43 @@ async def rotate_refresh_token(
 async def revoke_auth_session(
     db: AsyncSession,
     *,
-    raw_token: str,
+    raw_token: str | None,
     csrf_cookie: str | None,
     csrf_header: str | None,
+    access_token: str | None = None,
 ) -> None:
+    # Prefer the active access context. Unrelated/stale refresh cookies must not
+    # select a different session or prevent revoking the authenticated session.
+    if access_token is not None:
+        try:
+            user_id, access_session_id = decode_access_token(access_token)
+        except jwt.InvalidTokenError:
+            pass
+        else:
+            async with db.begin():
+                auth_session = await db.scalar(
+                    select(AuthSession)
+                    .where(AuthSession.id == access_session_id)
+                    .with_for_update()
+                )
+                now = datetime.now(UTC)
+                if (
+                    auth_session is not None
+                    and auth_session.user_id == user_id
+                    and auth_session.revoked_at is None
+                    and auth_session.expires_at > now
+                ):
+                    user = await db.get(User, user_id)
+                    if user is not None and user.is_active:
+                        if not verify_csrf_token(
+                            auth_session.id, csrf_cookie, csrf_header
+                        ):
+                            raise ForbiddenError("Invalid CSRF token")
+                        auth_session.revoked_at = now
+                        return
+
+    if raw_token is None:
+        return
 
     try:
         token_id, secret = parse_refresh_token(raw_token)
@@ -226,4 +261,4 @@ async def revoke_auth_session(
             raise ForbiddenError("Invalid CSRF token")
 
         if auth_session.revoked_at is None:
-            auth_session.revoked_at = datetime.now(timezone.utc)
+            auth_session.revoked_at = datetime.now(UTC)

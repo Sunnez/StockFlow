@@ -4,13 +4,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies.organization import BusinessReadContext, BusinessWriteContext
 from app.db.session import get_db
 from app.schemas.warehouse import WarehouseCreate, WarehouseRead, WarehouseUpdate
 from app.services.warehouse import service as warehouse_service
 
-
 router = APIRouter(
-    prefix="/warehouses",
+    prefix="/organizations/{organization_id}/warehouses",
     tags=["Warehouses"],
 )
 
@@ -22,10 +22,13 @@ router = APIRouter(
 )
 async def create_warehouse(
     data: WarehouseCreate,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await warehouse_service.create_warehouse(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         name=data.name,
         location=data.location,
     )
@@ -36,12 +39,14 @@ async def create_warehouse(
     response_model=list[WarehouseRead],
 )
 async def get_warehouses(
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessReadContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
     return await warehouse_service.list_warehouses(
         db,
+        organization_id=org_context.organization.id,
         limit=limit,
         offset=offset,
     )
@@ -53,10 +58,12 @@ async def get_warehouses(
 )
 async def get_warehouse(
     warehouse_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessReadContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await warehouse_service.get_warehouse(
         db,
+        organization_id=org_context.organization.id,
         warehouse_id=warehouse_id,
     )
 
@@ -68,10 +75,13 @@ async def get_warehouse(
 async def update_warehouse(
     warehouse_id: UUID,
     data: WarehouseUpdate,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await warehouse_service.update_warehouse(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         warehouse_id=warehouse_id,
         name=data.name,
         location=data.location,
@@ -84,9 +94,12 @@ async def update_warehouse(
 )
 async def delete_warehouse(
     warehouse_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await warehouse_service.delete_warehouse(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         warehouse_id=warehouse_id,
     )

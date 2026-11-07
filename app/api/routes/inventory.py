@@ -4,6 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies.organization import BusinessReadContext, BusinessWriteContext
 from app.db.session import get_db
 from app.schemas.inventory import (
     InventoryCreate,
@@ -12,9 +13,8 @@ from app.schemas.inventory import (
 )
 from app.services.inventory import service as inventory_service
 
-
 router = APIRouter(
-    prefix="/warehouses",
+    prefix="/organizations/{organization_id}/warehouses",
     tags=["Inventory"],
 )
 
@@ -27,10 +27,13 @@ router = APIRouter(
 async def create_inventory(
     warehouse_id: UUID,
     data: InventoryCreate,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await inventory_service.create_inventory(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         warehouse_id=warehouse_id,
         product_id=data.product_id,
         quantity=data.quantity,
@@ -43,12 +46,14 @@ async def create_inventory(
 )
 async def get_warehouse_inventory(
     warehouse_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessReadContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
     return await inventory_service.list_warehouse_inventory(
         db,
+        organization_id=org_context.organization.id,
         warehouse_id=warehouse_id,
         limit=limit,
         offset=offset,
@@ -63,10 +68,13 @@ async def update_inventory(
     warehouse_id: UUID,
     product_id: UUID,
     data: InventoryUpdate,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     return await inventory_service.update_inventory_quantity(
         db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
         warehouse_id=warehouse_id,
         product_id=product_id,
         quantity=data.quantity,
@@ -80,8 +88,13 @@ async def update_inventory(
 async def delete_inventory(
     warehouse_id: UUID,
     product_id: UUID,
-    db: AsyncSession = Depends(get_db),
+    org_context: BusinessWriteContext,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await inventory_service.delete_inventory(
-        db, warehouse_id=warehouse_id, product_id=product_id
+        db,
+        organization_id=org_context.organization.id,
+        actor_id=org_context.user.id,
+        warehouse_id=warehouse_id,
+        product_id=product_id,
     )

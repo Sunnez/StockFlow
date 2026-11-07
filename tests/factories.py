@@ -10,7 +10,7 @@ async def create_product(
     sku: str = "RTX5090",
 ) -> dict[str, Any]:
     response = await client.post(
-        "/products",
+        "products",
         json={
             "name": name,
             "sku": sku,
@@ -29,7 +29,7 @@ async def create_warehouse(
     location: str = "Riga, Latvia",
 ) -> dict[str, Any]:
     response = await client.post(
-        "/warehouses",
+        "warehouses",
         json={
             "name": name,
             "location": location,
@@ -49,7 +49,7 @@ async def create_inventory(
     quantity: int = 10,
 ) -> dict[str, Any]:
     response = await client.post(
-        f"/warehouses/{warehouse_id}/inventory",
+        f"warehouses/{warehouse_id}/inventory",
         json={
             "product_id": product_id,
             "quantity": quantity,
@@ -77,4 +77,17 @@ async def create_user(
 
     assert response.status_code == 201, response.text
 
+    return response.json()
+
+async def login(
+    client: AsyncClient,
+    *,
+    email: str = "alex@example.com",
+    password: str = "SecurePassword123!",
+) -> dict[str, Any]:
+    response = await client.post(
+        "/auth/login", json={"email": email, "password": password}
+    )
+    assert response.status_code == 200, response.text
+    client.headers["X-CSRF-Token"] = client.cookies["csrf_token"]
     return response.json()

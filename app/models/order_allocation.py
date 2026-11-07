@@ -5,7 +5,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     CheckConstraint,
-    ForeignKey,
+    ForeignKeyConstraint,
     Index,
     UniqueConstraint,
     Uuid,
@@ -32,6 +32,18 @@ class OrderAllocation(Base):
     __tablename__ = "order_allocations"
 
     __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "order_item_id", "product_id"],
+            ["order_items.organization_id", "order_items.id", "order_items.product_id"],
+            name=FK_ORDER_ALLOCATION_ORDER_ITEM,
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "inventory_id", "product_id"],
+            ["inventory.organization_id", "inventory.id", "inventory.product_id"],
+            name=FK_ORDER_ALLOCATION_INVENTORY,
+            ondelete="RESTRICT",
+        ),
         CheckConstraint(
             "quantity > 0",
             name=CK_ORDER_ALLOCATION_QUANTITY_GREATER_THAN_0,
@@ -47,6 +59,8 @@ class OrderAllocation(Base):
         ),
     )
 
+    organization_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+
     id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
         primary_key=True,
@@ -55,23 +69,15 @@ class OrderAllocation(Base):
 
     order_item_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey(
-            "order_items.id",
-            name=FK_ORDER_ALLOCATION_ORDER_ITEM,
-            ondelete="CASCADE",
-        ),
         nullable=False,
     )
 
     inventory_id: Mapped[UUID] = mapped_column(
         Uuid(as_uuid=True),
-        ForeignKey(
-            "inventory.id",
-            name=FK_ORDER_ALLOCATION_INVENTORY,
-            ondelete="RESTRICT",
-        ),
         nullable=False,
     )
+
+    product_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
 
     quantity: Mapped[int] = mapped_column(
         nullable=False,
@@ -79,8 +85,10 @@ class OrderAllocation(Base):
 
     order_item: Mapped[OrderItem] = relationship(
         back_populates="allocations",
+        foreign_keys=[order_item_id],
     )
 
     inventory: Mapped[Inventory] = relationship(
         back_populates="allocations",
+        foreign_keys=[inventory_id],
     )
